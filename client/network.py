@@ -79,7 +79,6 @@ class Network:
 
     def get_message(self):
         """
-V)
         Lấy một tin nhắn từ hàng đợi.
         Hàm này được gọi từ luồng game chính (trong vòng lặp).
         """

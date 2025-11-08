@@ -1,5 +1,3 @@
-# Client/ui_components.py
-
 import pygame
 
 class Button:
@@ -41,59 +39,99 @@ class Button:
     
 
 class InputBox:
-    """Tạo một class Ô Nhập Liệu (InputBox) cho Pygame."""
-    def __init__(self, x, y, width, height, font, text=''):
+    """Tạo một class Ô Nhập Liệu (InputBox) đã nâng cấp."""
+    def __init__(self, x, y, width, height, font, text='', is_password=False):
         self.rect = pygame.Rect(x, y, width, height)
         self.font = font
         self.text = text
-        self.color_inactive = (100, 100, 100) # Màu xám mờ
-        self.color_active = (200, 200, 200)   # Màu xám sáng
+        self.is_password = is_password # [MỚI] Biến để che mật khẩu
+        
+        self.color_inactive = (100, 100, 100)
+        self.color_active = (200, 200, 200)
         self.current_color = self.color_inactive
         self.active = False
         
-        # Tạo bề mặt (surface) cho text
-        self.txt_surface = self.font.render(text, True, self.current_color)
-        self.txt_rect = self.txt_surface.get_rect(center=self.rect.center)
+        # [MỚI] Thêm con trỏ nhấp nháy
+        self.cursor_visible = True
+        self.cursor_timer = 0
+        
+        self.update_text_surface() # Gọi hàm cập nhật
 
     def handle_event(self, event):
         """Xử lý sự kiện cho ô input."""
         if event.type == pygame.MOUSEBUTTONDOWN:
-            # Nếu click vào ô
             if self.rect.collidepoint(event.pos):
                 self.active = not self.active
             else:
                 self.active = False
-            # Đổi màu dựa trên trạng thái active
             self.current_color = self.color_active if self.active else self.color_inactive
+            self.cursor_visible = self.active # Hiện con trỏ khi active
         
         if event.type == pygame.KEYDOWN:
             if self.active:
                 if event.key == pygame.K_RETURN:
-                    # (Tùy chọn) Nhấn Enter để gửi
                     return "enter" 
                 elif event.key == pygame.K_BACKSPACE:
-                    # Xóa ký tự
                     self.text = self.text[:-1]
                 else:
-                    # Thêm ký tự (chỉ nhận a-z, 0-9, _, -)
-                    if event.unicode.isalnum() or event.unicode in ('_', '-'):
+                    # [THAY ĐỔI] Cho phép mọi ký tự in được (bao gồm @, !, .)
+                    if event.unicode.isprintable() and len(self.text) < 50:
                          self.text += event.unicode
                 
-                # Cập nhật lại surface text
                 self.update_text_surface()
 
     def update_text_surface(self):
         """Cập nhật surface text mỗi khi text thay đổi."""
-        self.txt_surface = self.font.render(self.text, True, (255, 255, 255)) # Chữ màu trắng
-        # Căn lề trái cho text
+        
+        # [MỚI] Che mật khẩu
+        display_text = self.text
+        if self.is_password:
+            display_text = '*' * len(self.text)
+            
+        self.txt_surface = self.font.render(display_text, True, (255, 255, 255))
+        
+        # [MỚI] Xử lý cuộn (scroll)
+        # Căn lề trái, có 10px đệm
         self.txt_rect = self.txt_surface.get_rect(midleft=(self.rect.x + 10, self.rect.centery))
-        # Tự động co dãn chiều rộng (nếu cần, nhưng tạm thời bỏ qua)
-        # new_width = max(self.rect.width, self.txt_surface.get_width() + 20)
-        # self.rect.w = new_width
+        
+        # Nếu chữ dài hơn ô (trừ 20px đệm 2 bên)
+        if self.txt_surface.get_width() > self.rect.width - 20:
+            # Căn lề phải
+            self.txt_rect.midright = (self.rect.right - 10, self.rect.centery)
+
+    # [MỚI] Thêm hàm update (dùng cho con trỏ)
+    def update(self, clock):
+        """Cập nhật con trỏ nhấp nháy (chạy mỗi frame)."""
+        if self.active:
+            # clock.get_time() lấy thời gian (ms) từ frame trước
+            self.cursor_timer += clock.get_time() 
+            if self.cursor_timer >= 500: # 500ms (nửa giây)
+                self.cursor_timer = 0
+                self.cursor_visible = not self.cursor_visible
 
     def draw(self, screen):
         """Vẽ ô input lên màn hình."""
-        # Vẽ hình chữ nhật
+        # 1. Vẽ hình chữ nhật
         pygame.draw.rect(screen, self.current_color, self.rect, border_radius=10)
-        # Vẽ chữ
+        
+        # 2. [MỚI] Tạo vùng "cắt" (clipping area)
+        # Chỉ vẽ chữ bên trong ô (thụt vào 5px)
+        clip_rect = self.rect.inflate(-10, -10)
+        screen.set_clip(clip_rect)
+        
+        # 3. Vẽ chữ (đã được căn lề trong update_text_surface)
         screen.blit(self.txt_surface, self.txt_rect)
+        
+        # 4. [MỚI] Vẽ con trỏ nhấp nháy
+        if self.active and self.cursor_visible:
+            cursor_x = self.txt_rect.right + 2 # Vị trí con trỏ
+            # Đảm bảo con trỏ không tràn ra ngoài
+            if cursor_x > self.rect.right - 8:
+                cursor_x = self.rect.right - 8
+            
+            cursor_y_start = self.rect.top + 10
+            cursor_y_end = self.rect.bottom - 10
+            pygame.draw.line(screen, (255, 255, 255), (cursor_x, cursor_y_start), (cursor_x, cursor_y_end), 2)
+
+        # 5. [MỚI] Tắt vùng "cắt"
+        screen.set_clip(None)

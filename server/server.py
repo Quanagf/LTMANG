@@ -46,6 +46,9 @@ async def handle_message(websocket, message):
         # --- [MỚI] Thêm các chức năng Lobby ---
         elif action == "JOIN_ROOM":
             await game_logic.handle_join_room(websocket, payload)
+
+        elif action == "CANCEL_QUICK_JOIN":
+            await game_logic.handle_cancel_quick_join(websocket)           
             
         elif action == "FIND_ROOM":
             await game_logic.handle_find_room(websocket)
@@ -57,19 +60,17 @@ async def handle_message(websocket, message):
         elif action == "UPDATE_SETTINGS":
             await game_logic.handle_update_settings(websocket, payload)
         elif action == "READY": # Thay cho "Bắt đầu game"
-            await game_logic.handle_ready(websocket)
+             await game_logic.handle_ready(websocket, payload)
         elif action == "LEAVE_ROOM":
              await game_logic.handle_leave_room(websocket)
         
         elif action == "MOVE":
              await game_logic.handle_move(websocket, payload)
-             pass
         elif action == "CHAT":
              await game_logic.handle_chat(websocket, payload)
-             pass
         elif action == "REMATCH":
-             await game_logic.handle_rematch(websocket)
-             pass
+             await game_logic.handle_rematch(websocket, payload)
+
         
         # --- Hết ---
             
