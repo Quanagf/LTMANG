@@ -3,7 +3,7 @@
 DB_CONFIG = {
     'host': 'localhost',      # Giữ nguyên nếu MySQL chạy ở máy bạn
     'user': 'root',           # User mặc định, có thể bạn đã đổi
-    'password': '2005', # <-- THAY ĐỔI DÒNG NÀY
+    'password': '', # <-- THAY ĐỔI DÒNG NÀY
     'database': 'caro',        # Tên database bạn đã tạo
     'auth_plugin': 'mysql_native_password'
 }

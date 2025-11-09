@@ -21,7 +21,7 @@ clock = pygame.time.Clock()
 
 # --- Tải Font ---
 try:
-    font_path = os.path.join('Client', 'assets', 'arial.ttf')
+    font_path = os.path.join('C:\\', 'Users', 'admin', 'Documents', 'GitHub', 'LTMANG', 'client', 'assets', 'arial.ttf')
     font_large = pygame.font.Font(font_path, 50)
     font_medium = pygame.font.Font(font_path, 30)
     font_small = pygame.font.Font(font_path, 20)
@@ -207,6 +207,56 @@ def draw_text(text, font, x, y, color=(255, 255, 255), center=True):
     else:
         rect = img.get_rect(topleft=(x, y))
     screen.blit(img, rect)
+
+
+def get_score_for_user(score_dict, uid):
+    """Return the score for uid from score_dict handling str/int key mismatches.
+
+    Tries direct lookup, then stringified key, then scans keys comparing string forms.
+    Returns 0 if no match found or score_dict is falsy.
+    """
+    if not score_dict:
+        return 0
+
+    # direct lookup
+    try:
+        if uid in score_dict:
+            return score_dict[uid]
+    except Exception:
+        pass
+
+    s_uid = str(uid)
+    if s_uid in score_dict:
+        return score_dict[s_uid]
+
+    # fallback: compare stringified keys
+    for k, v in score_dict.items():
+        try:
+            if str(k) == s_uid:
+                return v
+        except Exception:
+            continue
+
+    return 0
+
+
+def find_opponent_id_from_score(score_dict, my_uid):
+    """Find and return the opponent id key from a score dict given my_uid.
+
+    Returns the first key that does not match my_uid (compares string forms).
+    Returns None if not found.
+    """
+    if not score_dict:
+        return None
+
+    s_my = str(my_uid)
+    for k in score_dict.keys():
+        try:
+            if str(k) != s_my:
+                return k
+        except Exception:
+            continue
+    return None
 
 def send_login_register(action_type, username, password):
     global feedback_msg, feedback_color
@@ -647,20 +697,18 @@ while running:
             game_score = message.get("score", {})
             
             # Tự động tìm opponent_user_id từ score nếu chưa có
-            if opponent_user_id is None and game_score and my_user_id:
-                for uid in game_score.keys():
-                    if uid != my_user_id:
-                        opponent_user_id = uid
-                        print(f"[GAME OVER] Tự động phát hiện opponent_user_id: {opponent_user_id}")
-                        break
+            if opponent_user_id is None and game_score and my_user_id is not None:
+                opponent_user_id = find_opponent_id_from_score(game_score, my_user_id)
+                if opponent_user_id is not None:
+                    print(f"[GAME OVER] Tự động phát hiện opponent_user_id: {opponent_user_id}")
             
             print(f"[GAME OVER] Kết quả: {game_result}")
             print(f"[GAME OVER] Score nhận từ server: {game_score}")
             print(f"[GAME OVER] My user_id: {my_user_id}")
             print(f"[GAME OVER] Opponent user_id: {opponent_user_id}")
             if game_score and my_user_id:
-                my_score = game_score.get(my_user_id, -999)
-                opp_score = game_score.get(opponent_user_id, -999)
+                my_score = get_score_for_user(game_score, my_user_id)
+                opp_score = get_score_for_user(game_score, opponent_user_id)
                 print(f"[GAME OVER] My score: {my_score}, Opponent score: {opp_score}")
             
             feedback_msg = ""
@@ -986,10 +1034,16 @@ while running:
         draw_text(subtitle, font_medium, SCREEN_WIDTH / 2, 220, (255, 255, 255))
         
         # Hiển thị điểm số (dùng my_user_id và opponent_user_id)
-        if game_score and my_user_id:
-            my_score = game_score.get(my_user_id, 0)
-            opponent_score = game_score.get(opponent_user_id, 0) if opponent_user_id else 0
-            
+        if game_score and my_user_id is not None:
+            # Use robust lookup to handle string/int keys from server
+            my_score = get_score_for_user(game_score, my_user_id)
+            # If opponent id not known, try to infer from score dict
+            if opponent_user_id is None:
+                inferred = find_opponent_id_from_score(game_score, my_user_id)
+                if inferred is not None:
+                    opponent_user_id = inferred
+            opponent_score = get_score_for_user(game_score, opponent_user_id) if opponent_user_id is not None else 0
+
             draw_text(f"Tỷ số: {my_score} - {opponent_score}", font_medium, SCREEN_WIDTH / 2, 280, (255, 255, 0))
         
         # Hiển thị thông báo (nếu có)

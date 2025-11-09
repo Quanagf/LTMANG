@@ -3,7 +3,7 @@
 import mysql.connector
 import bcrypt
 from config import DB_CONFIG # Import cấu hình từ file config.py
-
+from datetime import datetime # Cần import để lấy thời gian hiện tại cho log_match
 # --- HÀM TIỆN ÍCH KẾT NỐI ---
 
 def get_db_connection():
@@ -133,13 +133,70 @@ def login_user(username, password_attempt):
 
 def update_game_stats(winner_id, loser_id):
     """Cập nhật wins/losses cho người chơi sau khi kết thúc trận."""
-    # (Bạn sẽ tự code phần này, dùng lệnh UPDATE ... SET wins = wins + 1 ...)
-    pass
+    conn = get_db_connection()
+    if conn is None:
+        print("[DB_ERROR] Không thể kết nối để cập nhật tỉ số.")
+        return False
+
+    cursor = conn.cursor()
+    try:
+        # +1 Thắng cho người thắng
+        sql_win = "UPDATE users SET wins = wins + 1 WHERE user_id = %s"
+        cursor.execute(sql_win, (winner_id,))
+        
+        # +1 Thua cho người thua
+        sql_lose = "UPDATE users SET losses = losses + 1 WHERE user_id = %s"
+        cursor.execute(sql_lose, (loser_id,))
+        
+        conn.commit()
+        print(f"[DB_UPDATE] Đã cập nhật tỉ số: {winner_id} thắng, {loser_id} thua.")
+        return True
+        
+    except mysql.connector.Error as err:
+        print(f"[DB_ERROR] Lỗi khi cập nhật tỉ số: {err}")
+        conn.rollback() # Hủy bỏ thay đổi nếu có lỗi
+        return False
+    finally:
+        cursor.close()
+        conn.close()
 
 def log_match(player_x_id, player_o_id, winner_id, move_log):
-    """Lưu lại lịch sử trận đấu vào bảng match_history."""
-    # (Bạn sẽ tự code phần này, dùng lệnh INSERT INTO match_history ...)
-    pass
+    """
+    Lưu lại lịch sử trận đấu vào bảng match_history.
+    - player_x_id, player_o_id: ID của 2 người chơi.
+    - winner_id: ID của người thắng (hoặc NULL nếu là hòa).
+    - move_log: Chuỗi JSON hoặc TEXT ghi lại các nước đi.
+    """
+    conn = get_db_connection()
+    if conn is None:
+        print("[DB_ERROR] Không thể kết nối để lưu lịch sử trận đấu.")
+        return False
+
+    cursor = conn.cursor()
+    try:
+        current_time = datetime.now()
+        
+        # Lệnh INSERT INTO match_history
+        sql = """
+            INSERT INTO match_history 
+            (player_x_id, player_o_id, winner_id, start_time, end_time, move_log) 
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        # start_time có thể được lấy từ logic game, ở đây dùng end_time làm giá trị cho cả 2 để đơn giản.
+        # Hoặc bạn có thể truyền thêm start_time từ ngoài vào nếu cần.
+        cursor.execute(sql, (player_x_id, player_o_id, winner_id, current_time, current_time, move_log))
+        
+        conn.commit()
+        print(f"[DB_LOG] Đã lưu lịch sử trận đấu mới: Match ID {cursor.lastrowid}")
+        return True
+        
+    except mysql.connector.Error as err:
+        print(f"[DB_ERROR] Lỗi khi lưu lịch sử trận đấu: {err}")
+        conn.rollback()
+        return False
+    finally:
+        cursor.close()
+        conn.close()
 
 # --- [MỚI] HÀM CẬP NHẬT TỈ SỐ ---
 def update_game_stats(winner_id, loser_id):
