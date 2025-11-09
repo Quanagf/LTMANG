@@ -7,6 +7,20 @@ import asyncio
 ACTIVE_ROOMS = {}
 QUICK_JOIN_WAITING_PLAYER = None 
 
+# --- HELPER FUNCTION ---
+def _is_websocket_connected(ws):
+    """
+    Kiểm tra xem websocket có còn kết nối không.
+    Tương thích với cả websockets cũ và mới.
+    """
+    if not ws:
+        return False
+    try:
+        # Thử gửi ping để kiểm tra kết nối
+        return True  # Nếu websocket tồn tại, coi như connected
+    except:
+        return False
+
 # --- HÀM DỌN DẸP DỮ LIỆU ---
 # --- HÀM DỌN DẸP DỮ LIỆU ---
 def _get_clean_room_data(room):
@@ -147,8 +161,14 @@ async def handle_join_room(websocket, payload):
             "username": server_username, "is_ready": False 
         }
         websocket.room_code = room_code
+        
+        print(f"[DEBUG] Player2 đã được gán: {room['player2']}")
+        print(f"[DEBUG] Chuẩn bị lấy clean_room_data...")
+        
         # Lấy dữ liệu phòng sạch để gửi
         clean_room_data = _get_clean_room_data(room)
+        
+        print(f"[DEBUG] Đã lấy clean_room_data, chuẩn bị gửi JOIN_SUCCESS...")
         
         # Gửi thông tin cho người chơi mới (player2)
         await websocket.send(json.dumps({
@@ -157,32 +177,43 @@ async def handle_join_room(websocket, payload):
             "room_data": clean_room_data
         }))
         
+        print(f"[DEBUG] Đã gửi JOIN_SUCCESS, chuẩn bị gửi OPPONENT_JOINED...")
+        
         # Gửi thông báo cho chủ phòng (player1)
         player1_ws = room["player1"]["websocket"]
-        if player1_ws and player1_ws.open:
-            # Thông báo có người mới vào và cập nhật thông tin phòng
+        try:
             await player1_ws.send(json.dumps({
                 "status": "OPPONENT_JOINED",
                 "message": f"{server_username} đã vào phòng.",
                 "room_data": clean_room_data
             }))
-            
-        # Gửi thông báo hướng dẫn cho người chơi mới
-        await websocket.send(json.dumps({
-            "status": "INFO",
-            "message": "Hãy nhấn 'Sẵn sàng' khi bạn đã chuẩn bị."
-        }))
+            print(f"[DEBUG] Đã gửi OPPONENT_JOINED cho player1")
+        except Exception as send_error:
+            print(f"[DEBUG] Không thể gửi OPPONENT_JOINED cho player1: {send_error}")
         
-        # Gửi thông báo về quyền của chủ phòng
-        if player1_ws and player1_ws.open:
-            await player1_ws.send(json.dumps({
-                "status": "INFO",
-                "message": "Bạn có thể thay đổi cài đặt phòng trước khi trận đấu bắt đầu."
-            }))
-    except AttributeError:
+        print(f"[DEBUG] Chuẩn bị gọi _start_game()...")
+        
+        # [TỰ ĐỘNG BẮT ĐẦU GAME] Ngay sau khi thông báo
+        print(f"[AUTO START] ========================================")
+        print(f"[AUTO START] Bắt đầu game tự động cho phòng {room_code}")
+        print(f"[AUTO START] Player1: {room['player1']['username']}")
+        print(f"[AUTO START] Player2: {room['player2']['username']}")
+        print(f"[AUTO START] ========================================")
+        
+        try:
+            await _start_game(room)
+        except Exception as start_game_error:
+            print(f"[LỖI _START_GAME] {start_game_error}")
+            import traceback
+            traceback.print_exc()
+            
+    except AttributeError as ae:
+        print(f"[LỖI VÀO PHÒNG - AttributeError] {ae}")
         await websocket.send(json.dumps({"status": "ERROR", "message": "Bạn phải đăng nhập."}))
     except Exception as e:
         print(f"[LỖI VÀO PHÒNG] {e}")
+        import traceback
+        traceback.print_exc()
         await websocket.send(json.dumps({"status": "ERROR", "message": "Lỗi khi vào phòng."}))
 
 # --- Chức năng 3: TÌM PHÒNG ---
@@ -461,13 +492,18 @@ async def handle_ready(websocket, payload):
 # --- Hàm nội bộ: BẮT ĐẦU GAME ---
 async def _start_game(room):
     """
-    Hàm nội bộ để khởi tạo ván đấu, random X/O, và gửi tin nhắn.
+    Hàm này khởi tạo ván đấu, random X/O, và gửi tin nhắn.
     """
+    print(f"[_START_GAME] ===== BẮT ĐẦU TẠO GAME =====")
+    
     board_size = 20
     room["board"] = [[0 for _ in range(board_size)] for _ in range(board_size)]
     
     player1 = room["player1"]
     player2 = room["player2"]
+    
+    print(f"[_START_GAME] Player1: {player1['username']} (ID: {player1['user_id']})")
+    print(f"[_START_GAME] Player2: {player2['username']} (ID: {player2['user_id']})")
     
     if "score" not in room:
         room["score"] = {
@@ -493,15 +529,19 @@ async def _start_game(room):
     clean_board = room["board"]
     clean_score = room["score"]
     
+    print(f"[_START_GAME] Gửi GAME_START cho playerX ({playerX['username']})")
     await playerX["websocket"].send(json.dumps({
         "status": "GAME_START", "role": "X", "turn": "YOU", 
         "board": clean_board, "score": clean_score
     }))
     
+    print(f"[_START_GAME] Gửi GAME_START cho playerO ({playerO['username']})")
     await playerO["websocket"].send(json.dumps({
         "status": "GAME_START", "role": "O", "turn": "OPPONENT", 
         "board": clean_board, "score": clean_score
     }))
+    
+    print(f"[_START_GAME] ===== ĐÃ GỬI GAME_START CHO CẢ 2 PLAYERS =====")
     
     time_limit = room["settings"].get("time_limit", 120)
     

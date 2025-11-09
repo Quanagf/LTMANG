@@ -170,7 +170,7 @@ join_room_confirm_button = Button(
 )
 
 # --- Quản lý Trạng thái Game ---
-game_state = "WELCOME" # WELCOME, LOGIN, LOBBY, CREATE_ROOM_FORM, JOIN_ROOM_FORM, QUICK_JOIN_WAITING, IN_ROOM_WAITING, ...
+game_state = "WELCOME" # WELCOME, LOGIN, LOBBY, CREATE_ROOM_FORM, JOIN_ROOM_FORM, QUICK_JOIN_WAITING, IN_ROOM_WAITING, PLAYING
 
 # --- Biến Toàn cục của Client ---
 user_data = None       
@@ -183,6 +183,15 @@ last_click_time = 0  # Thời gian click cuối cùng
 click_cooldown = 500  # Thời gian chờ giữa các lần click (0.5 giây)
 is_processing_join = False  # Đang xử lý yêu cầu join room
 join_room_origin = "LOBBY"  # Màn hình gốc khi vào form join room
+
+# --- Biến Game Playing ---
+game_board = None  # Ma trận bàn cờ
+player_role = None  # "X" hoặc "O"
+is_my_turn = False  # Lượt của mình
+board_size = 20  # Kích thước bàn cờ 20x20
+cell_size = 25  # Kích thước mỗi ô
+board_offset_x = 50  # Vị trí bàn cờ trên màn hình
+board_offset_y = 100
 
 # --- Hàm trợ giúp ---
 def draw_text(text, font, x, y, color=(255, 255, 255), center=True):
@@ -210,7 +219,6 @@ def send_login_register(action_type, username, password):
 # --- Vòng lặp Game Chính ---
 running = True
 while running:
-    
     # 1. Xử lý Input (Sự kiện)
     mouse_pos = pygame.mouse.get_pos()
     
@@ -352,7 +360,7 @@ while running:
                             join_room_origin = "FIND_ROOM"  # Đánh dấu là từ màn hình tìm phòng
                             join_room_code_input.text = room_id
                             join_room_password_input.text = ""
-                            feedback_msg = "🔒 Vui lòng nhập mật khẩu phòng"
+                            feedback_msg = ""  # Xóa message cũ
                             feedback_color = (255, 255, 255)
                         else:
                             # Nếu không có mật khẩu, join trực tiếp
@@ -364,7 +372,7 @@ while running:
                                 }
                             })
                             print(f"[GAME] Gửi yêu cầu vào phòng {room_id}")
-                            feedback_msg = "Đang xử lý yêu cầu vào phòng..."
+                            feedback_msg = "⌛ Đang vào phòng..."
                             feedback_color = (255, 255, 255)
                 total_pages = (len(available_rooms) - 1) // rooms_per_page + 1
                 if current_page < total_pages - 1:
@@ -419,6 +427,34 @@ while running:
         # --- Xử lý Input: IN_ROOM_WAITING (Phòng chờ) ---
         elif game_state == "IN_ROOM_WAITING":
             # (Chúng ta sẽ thêm nút Sẵn sàng/Rời phòng ở đây)
+            pass
+        
+        # --- Xử lý Input: PLAYING (Đang chơi) ---
+        elif game_state == "PLAYING":
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if is_my_turn and game_board:
+                    mouse_x, mouse_y = event.pos
+                    
+                    # Tính toán ô được click
+                    col = (mouse_x - board_offset_x) // cell_size
+                    row = (mouse_y - board_offset_y) // cell_size
+                    
+                    # Kiểm tra click hợp lệ
+                    if 0 <= row < board_size and 0 <= col < board_size:
+                        if game_board[row][col] == 0:  # Ô trống
+                            print(f"[GAME] Đánh cờ tại ({row}, {col})")
+                            # Gửi nước đi lên server
+                            network.send_message({
+                                "action": "MAKE_MOVE",
+                                "payload": {
+                                    "row": row,
+                                    "col": col
+                                }
+                            })
+                        else:
+                            print(f"[GAME] Ô ({row}, {col}) đã có quân cờ")
+                    else:
+                        print(f"[GAME] Click ngoài bàn cờ: ({row}, {col})")
             pass
 
     # --- [SỬA LẠI CẤU TRÚC] 2. Cập nhật trạng thái (cho con trỏ nhấp nháy) ---
@@ -520,10 +556,31 @@ while running:
             # Nếu đang ở màn hình tìm phòng và có thông báo lỗi liên quan đến phòng
             if game_state == "FIND_ROOM" and ("phòng" in error_msg.lower() or "room" in error_msg.lower()):
                 network.send_message({"action": "FIND_ROOM"})
-        # (Sẽ thêm GAME_START, OPPONENT_JOINED... sau) 
+        
+        # [MỚI] Xử lý khi game bắt đầu
+        elif status == "GAME_START":
+            print(f"[DEBUG] ===== NHẬN GAME_START =====")
+            print(f"[DEBUG] Message: {message}")
+            
+            game_state = "PLAYING"
+            game_board = message.get("board")
+            player_role = message.get("role")  # "X" hoặc "O"
+            turn_status = message.get("turn")  # "YOU" hoặc "OPPONENT"
+            is_my_turn = (turn_status == "YOU")
+            score_data = message.get("score")
+            
+            print(f"[GAME START] Role: {player_role}, Turn: {turn_status}, My Turn: {is_my_turn}")
+            print(f"[DEBUG] game_state đã đổi thành: {game_state}")
+            print(f"[DEBUG] game_board có {len(game_board)} rows" if game_board else "[DEBUG] game_board is None")
+            
+            feedback_msg = ""  # Xóa message cũ
+            feedback_color = (50, 255, 50) 
 
     # 4. Vẽ (Render)
     screen.fill((30, 30, 30))
+    
+    # Debug: In ra game_state hiện tại
+    # print(f"[DEBUG RENDER] Current game_state: {game_state}")
     
     # --- Vẽ Màn hình WELCOME ---
     if game_state == "WELCOME":
@@ -754,6 +811,58 @@ while running:
         except Exception as e:
             print(f"[ERROR] Lỗi khi hiển thị feedback: {e}")
         # (Sẽ thêm nút Sẵn sàng, Rời phòng ở đây)
+
+    # --- Vẽ Màn hình PLAYING (Đang chơi) ---
+    elif game_state == "PLAYING":
+        # print(f"[DEBUG RENDER PLAYING] player_role={player_role}, is_my_turn={is_my_turn}, game_board={'exists' if game_board else 'None'}")
+        
+        # Vẽ background
+        screen.fill((40, 40, 40))
+        
+        # Vẽ tiêu đề
+        draw_text("ĐANG CHƠI", font_medium, SCREEN_WIDTH / 2, 30, (0, 255, 0))
+        
+        # Hiển thị thông tin role và turn
+        role_text = f"Bạn là: {player_role}" if player_role else "Đang tải..."
+        turn_text = "Lượt của bạn!" if is_my_turn else "Lượt đối thủ..."
+        turn_color = (0, 255, 0) if is_my_turn else (255, 100, 100)
+        
+        draw_text(role_text, font_small, SCREEN_WIDTH / 2, 60, (255, 255, 0))
+        draw_text(turn_text, font_small, SCREEN_WIDTH / 2, 80, turn_color)
+        
+        # Vẽ bàn cờ nếu có
+        if game_board:
+            # Vẽ lưới
+            for row in range(board_size + 1):
+                y = board_offset_y + row * cell_size
+                pygame.draw.line(screen, (100, 100, 100), 
+                               (board_offset_x, y), 
+                               (board_offset_x + board_size * cell_size, y), 1)
+            
+            for col in range(board_size + 1):
+                x = board_offset_x + col * cell_size
+                pygame.draw.line(screen, (100, 100, 100), 
+                               (x, board_offset_y), 
+                               (x, board_offset_y + board_size * cell_size), 1)
+            
+            # Vẽ các quân cờ
+            for row in range(board_size):
+                for col in range(board_size):
+                    cell_value = game_board[row][col]
+                    if cell_value != 0:  # Có quân cờ
+                        x = board_offset_x + col * cell_size + cell_size // 2
+                        y = board_offset_y + row * cell_size + cell_size // 2
+                        
+                        if cell_value == 1:  # X
+                            color = (255, 0, 0)
+                            text = "X"
+                        else:  # O
+                            color = (0, 100, 255)
+                            text = "O"
+                        
+                        draw_text(text, font_small, x, y, color)
+        else:
+            draw_text("Đang tải bàn cờ...", font_medium, SCREEN_WIDTH / 2, 300)
 
     # --- Cập nhật màn hình chung ---
     try:
