@@ -192,6 +192,12 @@ board_size = 20  # Kích thước bàn cờ 20x20
 cell_size = 25  # Kích thước mỗi ô
 board_offset_x = 50  # Vị trí bàn cờ trên màn hình
 board_offset_y = 100
+my_user_id = None  # ID của mình
+opponent_user_id = None  # ID của đối thủ
+
+# --- Biến Game Over ---
+game_result = None  # WIN, LOSE, TIMEOUT_WIN, etc.
+game_score = {}  # {user_id: score}
 
 # --- Hàm trợ giúp ---
 def draw_text(text, font, x, y, color=(255, 255, 255), center=True):
@@ -443,6 +449,12 @@ while running:
                     if 0 <= row < board_size and 0 <= col < board_size:
                         if game_board[row][col] == 0:  # Ô trống
                             print(f"[GAME] Đánh cờ tại ({row}, {col})")
+                            
+                            # Cập nhật board ngay lập tức (optimistic update)
+                            if my_user_id:
+                                game_board[row][col] = my_user_id
+                                is_my_turn = False  # Chuyển lượt
+                            
                             # Gửi nước đi lên server
                             network.send_message({
                                 "action": "MAKE_MOVE",
@@ -455,7 +467,35 @@ while running:
                             print(f"[GAME] Ô ({row}, {col}) đã có quân cờ")
                     else:
                         print(f"[GAME] Click ngoài bàn cờ: ({row}, {col})")
-            pass
+        
+        # --- Xử lý Input: GAME_OVER_SCREEN ---
+        elif game_state == "GAME_OVER_SCREEN":
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                # Check nếu click vào vùng button (sẽ xử lý ở render)
+                mouse_x, mouse_y = event.pos
+                
+                # Tính vị trí button (phải match với code render)
+                rematch_rect = pygame.Rect((SCREEN_WIDTH / 2) - 160, 370, 140, 50)
+                lobby_rect = pygame.Rect((SCREEN_WIDTH / 2) + 20, 370, 140, 50)
+                
+                if rematch_rect.collidepoint(mouse_x, mouse_y):
+                    network.send_message({"action": "REMATCH", "payload": {}})
+                    feedback_msg = "Đã gửi lời mời chơi lại đến đối thủ..."
+                    feedback_color = (255, 255, 0)
+                    print("[REMATCH] Đã gửi yêu cầu chơi lại")
+                elif lobby_rect.collidepoint(mouse_x, mouse_y):
+                    network.send_message({"action": "LEAVE_ROOM", "payload": {}})
+                    game_state = "LOBBY"
+                    game_board = None
+                    player_role = None
+                    is_my_turn = False
+                    my_user_id = None
+                    opponent_user_id = None
+                    game_result = None
+                    game_score = {}
+                    feedback_msg = "Đã rời phòng"
+                    feedback_color = (255, 255, 255)
+                    print("[LOBBY] Đã rời phòng về lobby")
 
     # --- [SỬA LẠI CẤU TRÚC] 2. Cập nhật trạng thái (cho con trỏ nhấp nháy) ---
     if game_state == "LOGIN":
@@ -569,12 +609,68 @@ while running:
             is_my_turn = (turn_status == "YOU")
             score_data = message.get("score")
             
+            # Lưu my_user_id
+            my_user_id = user_data.get("user_id") if user_data else None
+            # opponent_user_id sẽ được set khi nhận OPPONENT_MOVE đầu tiên
+            opponent_user_id = None
+            
             print(f"[GAME START] Role: {player_role}, Turn: {turn_status}, My Turn: {is_my_turn}")
+            print(f"[DEBUG] My ID: {my_user_id}")
             print(f"[DEBUG] game_state đã đổi thành: {game_state}")
             print(f"[DEBUG] game_board có {len(game_board)} rows" if game_board else "[DEBUG] game_board is None")
             
             feedback_msg = ""  # Xóa message cũ
-            feedback_color = (50, 255, 50) 
+            feedback_color = (50, 255, 50)
+        
+        # [MỚI] Xử lý nước đi của đối thủ
+        elif status == "OPPONENT_MOVE":
+            move_data = message.get("move", {})
+            row = move_data.get("row")
+            col = move_data.get("col")
+            player_id = message.get("player_id")  # ID của người đánh
+            
+            if game_board and row is not None and col is not None and player_id:
+                # Cập nhật bàn cờ với ID của đối thủ
+                game_board[row][col] = player_id
+                is_my_turn = True
+                
+                # Lưu opponent_user_id nếu chưa có
+                if opponent_user_id is None:
+                    opponent_user_id = player_id
+                
+                print(f"[OPPONENT MOVE] Đối thủ (ID: {player_id}) đánh tại ({row}, {col}), Lượt của tôi: {is_my_turn}")
+        
+        # [MỚI] Xử lý khi game kết thúc
+        elif status == "GAME_OVER":
+            game_state = "GAME_OVER_SCREEN"
+            game_result = message.get("result")  # WIN, LOSE, TIMEOUT_WIN, TIMEOUT_LOSE, OPPONENT_LEFT_WIN
+            game_score = message.get("score", {})
+            
+            # Tự động tìm opponent_user_id từ score nếu chưa có
+            if opponent_user_id is None and game_score and my_user_id:
+                for uid in game_score.keys():
+                    if uid != my_user_id:
+                        opponent_user_id = uid
+                        print(f"[GAME OVER] Tự động phát hiện opponent_user_id: {opponent_user_id}")
+                        break
+            
+            print(f"[GAME OVER] Kết quả: {game_result}")
+            print(f"[GAME OVER] Score nhận từ server: {game_score}")
+            print(f"[GAME OVER] My user_id: {my_user_id}")
+            print(f"[GAME OVER] Opponent user_id: {opponent_user_id}")
+            if game_score and my_user_id:
+                my_score = game_score.get(my_user_id, -999)
+                opp_score = game_score.get(opponent_user_id, -999)
+                print(f"[GAME OVER] My score: {my_score}, Opponent score: {opp_score}")
+            
+            feedback_msg = ""
+            feedback_color = (255, 255, 255)
+        
+        # [MỚI] Xử lý khi đối thủ muốn chơi lại
+        elif status == "OPPONENT_REMATCH":
+            feedback_msg = "Đối thủ muốn chơi lại!"
+            feedback_color = (0, 255, 0)
+            print("[REMATCH] Đối thủ đã gửi lời mời chơi lại") 
 
     # 4. Vẽ (Render)
     screen.fill((30, 30, 30))
@@ -863,6 +959,59 @@ while running:
                         draw_text(text, font_small, x, y, color)
         else:
             draw_text("Đang tải bàn cờ...", font_medium, SCREEN_WIDTH / 2, 300)
+
+    # --- Vẽ Màn hình GAME_OVER_SCREEN ---
+    elif game_state == "GAME_OVER_SCREEN":
+        screen.fill((30, 30, 50))
+        
+        # Tiêu đề dựa trên kết quả
+        if game_result in ["WIN", "TIMEOUT_WIN", "OPPONENT_LEFT_WIN"]:
+            title = "CHIẾN THẮNG! 🎉"
+            title_color = (0, 255, 0)
+            if game_result == "TIMEOUT_WIN":
+                subtitle = "Đối thủ hết giờ"
+            elif game_result == "OPPONENT_LEFT_WIN":
+                subtitle = "Đối thủ đã rời game"
+            else:
+                subtitle = "Bạn đã thắng!"
+        else:  # LOSE, TIMEOUT_LOSE
+            title = "THUA CUỘC 😢"
+            title_color = (255, 0, 0)
+            if game_result == "TIMEOUT_LOSE":
+                subtitle = "Bạn đã hết giờ"
+            else:
+                subtitle = "Đối thủ đã thắng"
+        
+        draw_text(title, font_large, SCREEN_WIDTH / 2, 150, title_color)
+        draw_text(subtitle, font_medium, SCREEN_WIDTH / 2, 220, (255, 255, 255))
+        
+        # Hiển thị điểm số (dùng my_user_id và opponent_user_id)
+        if game_score and my_user_id:
+            my_score = game_score.get(my_user_id, 0)
+            opponent_score = game_score.get(opponent_user_id, 0) if opponent_user_id else 0
+            
+            draw_text(f"Tỷ số: {my_score} - {opponent_score}", font_medium, SCREEN_WIDTH / 2, 280, (255, 255, 0))
+        
+        # Hiển thị thông báo (nếu có)
+        if feedback_msg:
+            draw_text(feedback_msg, font_small, SCREEN_WIDTH / 2, 320, feedback_color)
+        
+        # Nút chơi lại và quay về lobby
+        rematch_button = Button(
+            x=(SCREEN_WIDTH / 2) - 160, y=370, width=140, height=50,
+            text="Chơi lại", font=font_medium,
+            color_normal=(0, 200, 0), color_hover=(0, 255, 0)
+        )
+        lobby_button = Button(
+            x=(SCREEN_WIDTH / 2) + 20, y=370, width=140, height=50,
+            text="Về Lobby", font=font_medium,
+            color_normal=(200, 0, 0), color_hover=(255, 0, 0)
+        )
+        
+        rematch_button.check_hover(mouse_pos)
+        lobby_button.check_hover(mouse_pos)
+        rematch_button.draw(screen)
+        lobby_button.draw(screen)
 
     # --- Cập nhật màn hình chung ---
     try:

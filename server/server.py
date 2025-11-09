@@ -64,7 +64,7 @@ async def handle_message(websocket, message):
         elif action == "LEAVE_ROOM":
              await game_logic.handle_leave_room(websocket)
         
-        elif action == "MOVE":
+        elif action == "MOVE" or action == "MAKE_MOVE":
              await game_logic.handle_move(websocket, payload)
         elif action == "CHAT":
              await game_logic.handle_chat(websocket, payload)

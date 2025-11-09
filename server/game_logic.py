@@ -54,6 +54,21 @@ def _get_clean_room_data(room):
         
     return clean_room
 
+
+# --- HELPER: SAFE SEND ---
+async def _safe_send(ws, payload):
+    """Gửi payload (dictionary) tới websocket một cách an toàn.
+    Trả về True nếu gửi thành công, False nếu lỗi hoặc ws là None.
+    """
+    if not ws:
+        return False
+    try:
+        await ws.send(json.dumps(payload))
+        return True
+    except Exception as e:
+        print(f"[SAFE_SEND ERROR] {e}")
+        return False
+
 # --- Hàm Tạo mã ---
 def generate_room_code(length=5):
     """Tạo một mã phòng ngẫu nhiên (ví dụ: 'A5K2P') và đảm bảo nó là duy nhất."""
@@ -423,18 +438,20 @@ async def handle_disconnect(websocket, reason="DISCONNECT"):
             room["player2"] = None 
             room["player1"]["is_ready"] = False 
         
-        if opponent_ws and opponent_ws.open:
+        if opponent_ws:
             print(f"-> Thông báo cho người chơi còn lại (ID: {opponent_id})")
-            
-            if room.get("board") is not None:
-                await _handle_game_over(room, winner_id=opponent_id, loser_id=user_id, reason="OPPONENT_LEFT")
-            else:
-                # [SỬA LỖI] Gửi data sạch
-                await opponent_ws.send(json.dumps({
-                    "status": "OPPONENT_LEFT",
-                    "message": f"{username} đã rời phòng. Bạn quay về phòng chờ.",
-                    "room_data": _get_clean_room_data(room) 
-                }))
+            try:
+                if room.get("board") is not None:
+                    await _handle_game_over(room, winner_id=opponent_id, loser_id=user_id, reason="OPPONENT_LEFT")
+                else:
+                    # [SỬA LỖI] Gửi data sạch
+                    await _safe_send(opponent_ws, {
+                        "status": "OPPONENT_LEFT",
+                        "message": f"{username} đã rời phòng. Bạn quay về phòng chờ.",
+                        "room_data": _get_clean_room_data(room)
+                    })
+            except Exception as e:
+                print(f"[ERROR_NOTIFY_OPPONENT] {e}")
         
     except AttributeError:
         print(f"[THOÁT] Một client chưa đăng nhập đã thoát.")
@@ -473,11 +490,11 @@ async def handle_ready(websocket, payload):
         room[player_key]["is_ready"] = is_ready
         print(f"[SẴN SÀNG] User {websocket.username} (phòng {room_code}) đặt trạng thái: {is_ready}")
 
-        if opponent_ws and opponent_ws.open:
-            await opponent_ws.send(json.dumps({
+        if opponent_ws:
+            await _safe_send(opponent_ws, {
                 "status": "OPPONENT_READY",
                 "is_ready": is_ready
-            }))
+            })
         
         if (room["player1"] and room["player1"]["is_ready"] and
             room["player2"] and room["player2"]["is_ready"]):
@@ -582,12 +599,12 @@ async def _start_turn_timer(room, player_id_on_turn, time_limit):
                 
             loser_ws = room["player1"]["websocket"] if room["player1"]["user_id"] == loser_id else room["player2"]["websocket"]
             
-            if loser_ws and loser_ws.open:
-                await loser_ws.send(json.dumps({
+            if loser_ws:
+                await _safe_send(loser_ws, {
                     "status": "GAME_OVER",
                     "result": "TIMEOUT_LOSE",
                     "score": room["score"]
-                }))
+                })
             
             await _handle_game_over(room, winner_id, loser_id, reason="TIMEOUT")
 
@@ -651,11 +668,12 @@ async def handle_move(websocket, payload):
             opponent_ws = room["player1"]["websocket"]
             opponent_id = room["player1"]["user_id"]
 
-        if opponent_ws and opponent_ws.open:
-            await opponent_ws.send(json.dumps({
+        if opponent_ws:
+            await _safe_send(opponent_ws, {
                 "status": "OPPONENT_MOVE",
-                "move": {"row": row, "col": col}
-            }))
+                "move": {"row": row, "col": col},
+                "player_id": user_id  # Gửi ID của người đánh để client cập nhật board
+            })
 
         if _check_win(room["board"], row, col, user_id):
             print(f"[GAME KẾT THÚC] User {websocket.username} (ID: {user_id}) thắng phòng {room_code}.")
@@ -737,23 +755,23 @@ async def _handle_game_over(room, winner_id, loser_id, reason="WIN"):
         elif room["player2"]["user_id"] == loser_id:
             loser_ws = room["player2"]["websocket"]
 
-    if winner_ws and winner_ws.open:
+    if winner_ws:
         result_type = "WIN"
         if reason == "TIMEOUT": result_type = "TIMEOUT_WIN"
         elif reason == "OPPONENT_LEFT": result_type = "OPPONENT_LEFT_WIN"
         
-        await winner_ws.send(json.dumps({
+        await _safe_send(winner_ws, {
             "status": "GAME_OVER",
             "result": result_type,
             "score": room["score"]
-        }))
+        })
         
-    if loser_ws and loser_ws.open and reason != "TIMEOUT": 
-        await loser_ws.send(json.dumps({
+    if loser_ws and reason != "TIMEOUT": 
+        await _safe_send(loser_ws, {
             "status": "GAME_OVER",
             "result": "LOSE",
             "score": room["score"]
-        }))
+        })
         
     # Reset phòng
     room["board"] = None 
@@ -787,13 +805,13 @@ async def handle_chat(websocket, payload):
         elif room["player2"] and room["player2"]["user_id"] == user_id:
             opponent_ws = room["player1"]["websocket"]
 
-        if opponent_ws and opponent_ws.open:
+        if opponent_ws:
             print(f"[CHAT] {username} (phòng {room_code}) gửi: {message}")
-            await opponent_ws.send(json.dumps({
+            await _safe_send(opponent_ws, {
                 "status": "OPPONENT_CHAT",
-                "sender": username, 
+                "sender": username,
                 "message": message
-            }))
+            })
         else:
             await websocket.send(json.dumps({
                 "status": "ERROR",
@@ -836,11 +854,11 @@ async def handle_rematch(websocket, payload):
         room[player_key]["is_ready"] = True
         print(f"[CHƠI LẠI] User {websocket.username} (phòng {room_code}) muốn chơi lại.")
 
-        if opponent_ws and opponent_ws.open:
-            await opponent_ws.send(json.dumps({
+        if opponent_ws:
+            await _safe_send(opponent_ws, {
                 "status": "OPPONENT_REMATCH",
                 "is_ready": True
-            }))
+            })
         
         if (room["player1"] and room["player1"]["is_ready"] and
             room["player2"] and room["player2"]["is_ready"]):
@@ -899,11 +917,11 @@ async def handle_update_settings(websocket, payload):
         
         if room["player2"]:
             opponent_ws = room["player2"]["websocket"]
-            if opponent_ws.open:
-                await opponent_ws.send(json.dumps({
-                    "status": "SETTINGS_CHANGED_BY_HOST", 
+            if opponent_ws:
+                await _safe_send(opponent_ws, {
+                    "status": "SETTINGS_CHANGED_BY_HOST",
                     "room_data": clean_room_data
-                }))
+                })
                 
     except Exception as e:
         print(f"[LỖI SETTINGS] {e}")
