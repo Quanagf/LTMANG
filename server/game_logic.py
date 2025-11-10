@@ -197,12 +197,16 @@ async def handle_join_room(websocket, payload):
         # Gửi thông báo cho chủ phòng (player1)
         player1_ws = room["player1"]["websocket"]
         try:
-            await player1_ws.send(json.dumps({
+            # Gửi cả 'opponent' (tách riêng) và 'room_data' để client có thể cập nhật an toàn
+            payload = {
                 "status": "OPPONENT_JOINED",
                 "message": f"{server_username} đã vào phòng.",
+                "opponent": clean_room_data.get("player2"),
                 "room_data": clean_room_data
-            }))
-            print(f"[DEBUG] Đã gửi OPPONENT_JOINED cho player1")
+            }
+            # Dùng hàm an toàn để gửi
+            await _safe_send(player1_ws, payload)
+            print(f"[DEBUG] Đã gửi OPPONENT_JOINED cho player1 (payload includes opponent + room_data)")
         except Exception as send_error:
             print(f"[DEBUG] Không thể gửi OPPONENT_JOINED cho player1: {send_error}")
         
@@ -340,8 +344,9 @@ async def handle_quick_join(websocket):
             
             # [SỬA LỖI] Gửi data sạch
             clean_room_data = _get_clean_room_data(room) 
-            await player1_ws.send(json.dumps({"status": "JOIN_SUCCESS", "message": "Đã tìm thấy đối thủ!", "room_data": clean_room_data}))
-            await websocket.send(json.dumps({"status": "JOIN_SUCCESS", "message": "Đã tìm thấy đối thủ!", "room_data": clean_room_data}))
+            # Gửi JOIN_SUCCESS cho cả 2 người kèm room_data
+            await _safe_send(player1_ws, {"status": "JOIN_SUCCESS", "message": "Đã tìm thấy đối thủ!", "room_data": clean_room_data})
+            await _safe_send(websocket, {"status": "JOIN_SUCCESS", "message": "Đã tìm thấy đối thủ!", "room_data": clean_room_data})
         
         else:
             QUICK_JOIN_WAITING_PLAYER = websocket
