@@ -1,0 +1,19 @@
+# Bytecode
+__pycache__/
+*.pyc
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Optional: database / local files
+*.sqlite3
