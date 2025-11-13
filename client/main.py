@@ -8,8 +8,8 @@ from ui_components import Button, InputBox
 import theme
 
 # --- Cài đặt ---
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+SCREEN_WIDTH = 1000
+SCREEN_HEIGHT = 700
 SERVER_URL = "ws://localhost:8765"
 QUICK_JOIN_TIMEOUT = 15000 # 15 giây (tính bằng mili-giây)
 
@@ -59,43 +59,43 @@ font_large, font_medium, font_small = _load_fonts()
 network = Network(SERVER_URL)
 
 # --- Tạo UI Components ---
-comp_width = 300
+comp_width = 350
 comp_x = (SCREEN_WIDTH - comp_width) / 2
 
 # === Màn hình WELCOME ===
 play_button = Button(
-    x=comp_x, y=250, width=comp_width, height=60, 
+    x=comp_x, y=280, width=comp_width, height=70, 
     text="Chơi Online", font=font_medium,
     color_normal=theme.ACCENT, color_hover=theme.ACCENT_HOVER
 )
 quit_button = Button(
-    x=comp_x, y=330, width=comp_width, height=60, 
+    x=comp_x, y=370, width=comp_width, height=70, 
     text="Thoát Game", font=font_medium,
     color_normal=theme.DANGER, color_hover=(235, 80, 80)
 )
 
 # === Màn hình LOGIN ===
 username_input = InputBox(
-    x=comp_x, y=200, width=comp_width, height=50, 
+    x=comp_x, y=230, width=comp_width, height=55, 
     font=font_medium, text=""
 )
 password_input = InputBox( 
-    x=comp_x, y=270, width=comp_width, height=50, 
+    x=comp_x, y=310, width=comp_width, height=55, 
     font=font_medium, text="", is_password=True
 )
 login_button = Button(
-    x=comp_x, y=340, width=comp_width, height=60, 
+    x=comp_x, y=390, width=comp_width, height=65, 
     text="Đăng nhập", font=font_medium,
     color_normal=theme.ACCENT, color_hover=theme.ACCENT_HOVER
 )
 register_button = Button(
-    x=comp_x, y=420, width=comp_width, height=60, 
+    x=comp_x, y=470, width=comp_width, height=65, 
     text="Đăng ký", font=font_medium,
     color_normal=theme.WARNING, color_hover=(255, 190, 60)
 )
 back_button = Button( # Nút quay lại chung
-    x=20, y=SCREEN_HEIGHT - 70, width=150, height=50, 
-    text="< Quay lại", font=font_medium,
+    x=20, y=SCREEN_HEIGHT - 80, width=160, height=55, 
+    text="Quay lại", font=font_medium,
     color_normal=theme.MUTED, color_hover=theme.SUBTEXT
 )
 
@@ -125,33 +125,33 @@ next_page_button = Button(
 )
 
 # === Màn hình LOBBY ===
-btn_lobby_width = 280
-col1_x = (SCREEN_WIDTH / 2) - btn_lobby_width - 30 
-col2_x = (SCREEN_WIDTH / 2) + 30
-row1_y = 200
-row2_y = 300
+btn_lobby_width = 320
+col1_x = (SCREEN_WIDTH / 2) - btn_lobby_width - 35 
+col2_x = (SCREEN_WIDTH / 2) + 35
+row1_y = 230
+row2_y = 340
 quick_join_button = Button(
-    x=col1_x, y=row1_y, width=btn_lobby_width, height=80, 
+    x=col1_x, y=row1_y, width=btn_lobby_width, height=85, 
     text="Vào nhanh", font=font_medium,
     color_normal=theme.LIME_GREEN, color_hover=(50, 255, 120)
 )
 create_room_button = Button(
-    x=col2_x, y=row1_y, width=btn_lobby_width, height=80, 
+    x=col2_x, y=row1_y, width=btn_lobby_width, height=85, 
     text="Tạo phòng", font=font_medium,
     color_normal=theme.CYAN_BLUE, color_hover=(50, 220, 255)
 )
 join_room_button = Button(
-    x=col1_x, y=row2_y, width=btn_lobby_width, height=80, 
+    x=col1_x, y=row2_y, width=btn_lobby_width, height=85, 
     text="Nhập mã phòng", font=font_medium,
     color_normal=theme.GOLD_ORANGE, color_hover=(255, 200, 50)
 )
 find_room_button = Button(
-    x=col2_x, y=row2_y, width=btn_lobby_width, height=80, 
+    x=col2_x, y=row2_y, width=btn_lobby_width, height=85, 
     text="Tìm phòng", font=font_medium,
     color_normal=theme.MAGENTA_PURPLE, color_hover=(240, 100, 240)
 )
 logout_button = Button(
-    x=SCREEN_WIDTH - 170, y=SCREEN_HEIGHT - 70, width=150, height=50, 
+    x=SCREEN_WIDTH - 180, y=SCREEN_HEIGHT - 80, width=160, height=55, 
     text="Đăng xuất", font=font_medium,
     color_normal=theme.MUTED, color_hover=theme.SUBTEXT
 )
@@ -160,6 +160,18 @@ logout_button = Button(
 cancel_quick_join_button = Button(
     x=comp_x, y=300, width=comp_width, height=60, 
     text="Hủy", font=font_medium,
+    color_normal=theme.DANGER, color_hover=(235, 80, 80)
+)
+
+# === Màn hình IN_ROOM_WAITING (Phòng chờ) ===
+ready_button = Button(
+    x=(SCREEN_WIDTH / 2) - 170, y=400, width=160, height=60,
+    text="Sẵn sàng", font=font_medium,
+    color_normal=theme.ACCENT, color_hover=theme.ACCENT_HOVER
+)
+leave_room_button = Button(
+    x=(SCREEN_WIDTH / 2) + 10, y=400, width=160, height=60,
+    text="Rời phòng", font=font_medium,
     color_normal=theme.DANGER, color_hover=(235, 80, 80)
 )
 
@@ -193,6 +205,13 @@ join_room_confirm_button = Button(
     color_normal=theme.ACCENT, color_hover=theme.ACCENT_HOVER
 )
 
+# === Nút Đầu hàng trong màn hình PLAYING (Panel bên phải) ===
+surrender_button = Button(
+    x=750, y=420, width=100, height=40, 
+    text="Đầu hàng", font=font_small,
+    color_normal=theme.DANGER, color_hover=(200, 50, 50)
+)
+
 # --- Quản lý Trạng thái Game ---
 game_state = "WELCOME" # WELCOME, LOGIN, LOBBY, CREATE_ROOM_FORM, JOIN_ROOM_FORM, QUICK_JOIN_WAITING, IN_ROOM_WAITING, PLAYING
 
@@ -201,6 +220,8 @@ user_data = None
 current_room = None    
 feedback_msg = ""      
 feedback_color = (255, 50, 50)
+feedback_show_time = 0  # Thời gian hiển thị feedback
+FEEDBACK_DURATION = 10000  # 10 giây
 client_is_ready = False 
 quick_join_start_time = None 
 last_click_time = 0  # Thời gian click cuối cùng
@@ -212,6 +233,8 @@ join_room_origin = "LOBBY"  # Màn hình gốc khi vào form join room
 game_board = None  # Ma trận bàn cờ
 player_role = None  # "X" hoặc "O"
 is_my_turn = False  # Lượt của mình
+turn_start_time = None  # Thời gian bắt đầu lượt hiện tại
+TURN_TIMEOUT = 30  # 30 giây mỗi lượt
 board_size = 20  # Kích thước bàn cờ 20x20
 cell_size = 25  # Kích thước mỗi ô
 board_offset_x = 50  # Vị trí bàn cờ trên màn hình
@@ -226,8 +249,43 @@ game_result = None  # WIN, LOSE, TIMEOUT_WIN, etc.
 game_score = {}  # {user_id: score}
 
 # --- Hàm trợ giúp ---
+def clean_text(text):
+    """Loại bỏ emoji và ký tự đặc biệt khỏi text"""
+    import re
+    # Loại bỏ emoji và các ký tự đặc biệt
+    emoji_pattern = re.compile("["
+        u"\U0001F600-\U0001F64F"  # emoticons
+        u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+        u"\U0001F680-\U0001F6FF"  # transport & map symbols
+        u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        u"\U00002500-\U00002BEF"  # chinese char
+        u"\U00002702-\U000027B0"
+        u"\U00002702-\U000027B0"
+        u"\U000024C2-\U0001F251"
+        u"\U0001f926-\U0001f937"
+        u"\U00010000-\U0010ffff"
+        u"\u2640-\u2642" 
+        u"\u2600-\u2B55"
+        u"\u200d"
+        u"\u23cf"
+        u"\u23e9"
+        u"\u231a"
+        u"\ufe0f"  # diacritics
+        u"\u3030"
+        u"\u2B50"
+        u"\u2705"
+        u"\u274C"
+        u"\u26A0"
+        u"\u231B"
+        u"\u25A0"
+        u"\u25A1"
+        "]+", flags=re.UNICODE)
+    return emoji_pattern.sub('', text).strip()
+
 def draw_text(text, font, x, y, color=theme.TEXT, center=True):
-    img = font.render(text, True, color)
+    # Làm sạch text trước khi render
+    clean_text_content = clean_text(text)
+    img = font.render(clean_text_content, True, color)
     if center:
         rect = img.get_rect(center=(x, y))
     else:
@@ -286,8 +344,31 @@ def find_opponent_id_from_score(score_dict, my_uid):
 
 def send_login_register(action_type, username, password):
     global feedback_msg, feedback_color
+    
+    # Validation cơ bản
     if not username or not password:
         feedback_msg = "Vui lòng nhập tên và mật khẩu."
+        feedback_color = (255, 50, 50)
+        return
+    
+    if len(username) < 3:
+        feedback_msg = "Tên đăng nhập phải có ít nhất 3 ký tự."
+        feedback_color = (255, 50, 50)
+        return
+        
+    if len(username) > 20:
+        feedback_msg = "Tên đăng nhập không được quá 20 ký tự."
+        feedback_color = (255, 50, 50)
+        return
+        
+    if len(password) < 3:
+        feedback_msg = "Mật khẩu phải có ít nhất 3 ký tự."
+        feedback_color = (255, 50, 50)
+        return
+    
+    # Kiểm tra ký tự hợp lệ cho username
+    if not username.replace('_', '').replace('-', '').isalnum():
+        feedback_msg = "Tên chỉ được chứa chữ, số, _ và -"
         feedback_color = (255, 50, 50)
         return
 
@@ -301,7 +382,25 @@ def send_login_register(action_type, username, password):
 # --- Vòng lặp Game Chính ---
 running = True
 while running:
-    # 1. Xử lý Input (Sự kiện)
+    # 1. Kiểm tra timeout lượt chơi trong PLAYING
+    if game_state == "PLAYING" and is_my_turn and turn_start_time is not None:
+        current_time = pygame.time.get_ticks()
+        elapsed_time = (current_time - turn_start_time) / 1000.0  # Chuyển sang giây
+        
+        if elapsed_time >= TURN_TIMEOUT:
+            # Hết thời gian, tự động chuyển lượt (không đánh nước nào)
+            is_my_turn = False
+            turn_start_time = None
+            feedback_msg = "Hết thời gian! Lượt đã chuyển cho đối thủ"
+            feedback_color = (255, 100, 100)
+            
+            # Gửi tin hiệu timeout lên server (nếu cần)
+            network.send_message({
+                "action": "TURN_TIMEOUT",
+                "payload": {}
+            })
+    
+    # 2. Xử lý Input (Sự kiện)
     mouse_pos = pygame.mouse.get_pos()
     
     for event in pygame.event.get():
@@ -318,6 +417,7 @@ while running:
                         print(f"Lỗi network: {e}")
                 game_state = "LOGIN"
                 feedback_msg = "" 
+                feedback_show_time = 0  # Reset timer 
             if quit_button.is_clicked(event):
                 running = False
         
@@ -363,7 +463,7 @@ while running:
                 join_room_origin = "LOBBY"  # Đánh dấu là từ màn hình lobby
                 join_room_code_input.text = "" # Xóa input cũ
                 join_room_password_input.text = ""
-                feedback_msg = "🎮 Nhập mã phòng 5 ký tự để tham gia"
+                feedback_msg = "Nhập mã phòng 5 ký tự để tham gia"
                 feedback_color = (255, 255, 255)
             
             if find_room_button.is_clicked(event):
@@ -454,7 +554,7 @@ while running:
                                 }
                             })
                             print(f"[GAME] Gửi yêu cầu vào phòng {room_id}")
-                            feedback_msg = "⌛ Đang vào phòng..."
+                            feedback_msg = "Đang vào phòng..."
                             feedback_color = (255, 255, 255)
                 total_pages = (len(available_rooms) - 1) // rooms_per_page + 1
                 if current_page < total_pages - 1:
@@ -474,13 +574,13 @@ while running:
                 password = join_room_password_input.text.strip()
                 
                 if not room_code:
-                    feedback_msg = "⚠️ Vui lòng nhập mã phòng"
+                    feedback_msg = "Vui lòng nhập mã phòng"
                     feedback_color = (255, 50, 50)
                 elif len(room_code) != 5:  # Kiểm tra độ dài mã phòng
-                    feedback_msg = "⚠️ Mã phòng phải có đúng 5 ký tự"
+                    feedback_msg = "Mã phòng phải có đúng 5 ký tự"
                     feedback_color = (255, 50, 50)
                 elif not all(c in string.ascii_uppercase + string.digits for c in room_code):
-                    feedback_msg = "⚠️ Mã phòng chỉ gồm chữ cái và số"
+                    feedback_msg = "Mã phòng chỉ gồm chữ cái và số"
                     feedback_color = (255, 50, 50)
                 else:
                     try:
@@ -492,7 +592,7 @@ while running:
                                 "password": password
                             }
                         })
-                        feedback_msg = "⌛ Đang kiểm tra phòng..."
+                        feedback_msg = "Đang kiểm tra phòng..."
                         feedback_color = (255, 255, 255)
                     except Exception as e:
                         print(f"[ERROR] Lỗi khi gửi yêu cầu vào phòng: {e}")
@@ -507,24 +607,60 @@ while running:
                 quick_join_start_time = None 
 
         # --- Xử lý Input: IN_ROOM_WAITING (Phòng chờ) ---
+        # --- Xử lý Input: IN_ROOM_WAITING (Phòng chờ) ---
         elif game_state == "IN_ROOM_WAITING":
-            # (Chúng ta sẽ thêm nút Sẵn sàng/Rời phòng ở đây)
-            pass
+            # Kiểm tra trạng thái sẵn sàng của người chơi hiện tại
+            my_ready_status = False
+            if current_room and user_data:
+                my_user_id = user_data.get("user_id")
+                player1_data = current_room.get("player1", {})
+                player2_data = current_room.get("player2", {})
+                
+                if player1_data.get("user_id") == my_user_id:
+                    my_ready_status = player1_data.get("is_ready", False)
+                elif player2_data.get("user_id") == my_user_id:
+                    my_ready_status = player2_data.get("is_ready", False)
+            
+            # Xử lý nút sẵn sàng/hủy sẵn sàng
+            if ready_button.is_clicked(event):
+                network.send_message({"action": "PLAYER_READY", "payload": {"toggle_ready": True}})
+                if my_ready_status:
+                    feedback_msg = "Đã hủy sẵn sàng!"
+                    feedback_color = (255, 165, 0)
+                else:
+                    feedback_msg = "Đã sẵn sàng!"
+                    feedback_color = (0, 255, 0)
+                
+            if leave_room_button.is_clicked(event):
+                network.send_message({"action": "LEAVE_ROOM", "payload": {}})
+                game_state = "LOBBY"
+                current_room = None
+                feedback_msg = "Đã rời phòng"
+                feedback_color = (255, 255, 255)
         
         # --- Xử lý Input: PLAYING (Đang chơi) ---
         elif game_state == "PLAYING":
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # Kiểm tra click nút đầu hàng
+            if surrender_button.is_clicked(event):
+                # Gửi yêu cầu đầu hàng lên server
+                network.send_message({
+                    "action": "SURRENDER", 
+                    "payload": {}
+                })
+                feedback_msg = "Đã gửi yêu cầu đầu hàng..."
+                feedback_color = (255, 165, 0)
+            
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if is_my_turn and game_board:
                     mouse_x, mouse_y = event.pos
                     
-                    # Tính toán centered board offset (giống như phần render)
-                    board_width = board_size * cell_size
-                    centered_board_offset_x = (SCREEN_WIDTH - board_width) // 2
-                    centered_board_offset_y = 160
+                    # Vị trí board cố định bên trái
+                    board_offset_x = 50
+                    board_offset_y = 80
                     
                     # Tính toán ô được click
-                    col = (mouse_x - centered_board_offset_x) // cell_size
-                    row = (mouse_y - centered_board_offset_y) // cell_size
+                    col = (mouse_x - board_offset_x) // cell_size
+                    row = (mouse_y - board_offset_y) // cell_size
                     
                     # Kiểm tra click hợp lệ
                     if 0 <= row < board_size and 0 <= col < board_size:
@@ -535,6 +671,7 @@ while running:
                             if my_user_id:
                                 game_board[row][col] = my_user_id
                                 is_my_turn = False  # Chuyển lượt
+                                turn_start_time = None  # Dừng timer
                             
                             # Gửi nước đi lên server
                             network.send_message({
@@ -591,6 +728,14 @@ while running:
         join_room_password_input.update(clock)
 
     # 2.5. Xử lý Logic Hẹn giờ (Timeout)
+    
+    # Kiểm tra thời gian hiển thị feedback message
+    if feedback_msg and feedback_show_time > 0:
+        current_time = pygame.time.get_ticks()
+        if current_time - feedback_show_time > FEEDBACK_DURATION:
+            feedback_msg = ""
+            feedback_show_time = 0
+    
     if game_state == "QUICK_JOIN_WAITING":
         if quick_join_start_time is not None: 
             current_time = pygame.time.get_ticks()
@@ -616,13 +761,30 @@ while running:
             feedback_msg = ""
             username_input.text = ""
             password_input.text = ""
+            
+        elif status == "FORCE_LOGOUT":
+            # Xử lý khi bị đăng xuất bởi đăng nhập từ thiết bị khác
+            game_state = "WELCOME"
+            user_data = None
+            current_room = None
+            feedback_msg = "Tài khoản của bạn đã được đăng nhập từ thiết bị khác!"
+            feedback_color = (255, 150, 0)  # Màu cam cảnh báo
+            feedback_show_time = pygame.time.get_ticks()  # Lưu thời gian hiển thị
+            # Đóng kết nối network
+            if network.is_connected:
+                try: 
+                    network.ws.close() 
+                except: 
+                    pass
+            network = Network(SERVER_URL)
+            print("[FORCE LOGOUT] Đã bị đăng xuất do đăng nhập từ thiết bị khác")
         
         elif status == "SUCCESS": # Đăng ký thành công
-            feedback_msg = message.get("message", "Đăng ký thành công!")
+            feedback_msg = clean_text(message.get("message", "Đăng ký thành công!"))
             feedback_color = (50, 255, 50) 
         
         elif status == "ERROR": # Bất kỳ lỗi nào
-            feedback_msg = message.get("message", "Lỗi không xác định.")
+            feedback_msg = clean_text(message.get("message", "Lỗi không xác định."))
             feedback_color = (255, 50, 50)
             if game_state == "QUICK_JOIN_WAITING":
                 game_state = "LOBBY" 
@@ -642,17 +804,25 @@ while running:
             feedback_color = (255, 255, 255)
             quick_join_start_time = None 
 
-        elif status in ["ROOM_CREATED", "JOIN_SUCCESS", "ROOM_UPDATED"]:
-            new_room_data = message.get("room_data")
-            print(f"[DEBUG] Cập nhật thông tin phòng: {new_room_data}")
-            current_room = new_room_data
-            game_state = "IN_ROOM_WAITING"
-            feedback_msg = message.get("message", "Vào phòng thành công!")
-            feedback_color = (50, 255, 50)
-            quick_join_start_time = None
-            is_processing_join = False  # Reset trạng thái xử lý
-            # Luôn cập nhật danh sách phòng sau khi có thay đổi
-            network.send_message({"action": "FIND_ROOM"})
+        elif status in ["ROOM_CREATED", "JOIN_SUCCESS", "ROOM_UPDATED", "ROOM_UPDATE"]:
+            # Xử lý cập nhật phòng từ server
+            if status == "ROOM_UPDATE":
+                new_room_data = message.get("payload", {})
+                print(f"[DEBUG] Nhận ROOM_UPDATE: {new_room_data}")
+                if new_room_data:
+                    current_room = new_room_data
+                    # Bỏ thông báo không cần thiết
+            else:
+                new_room_data = message.get("room_data")
+                print(f"[DEBUG] Cập nhật thông tin phòng: {new_room_data}")
+                current_room = new_room_data
+                game_state = "IN_ROOM_WAITING"
+                feedback_msg = clean_text(message.get("message", "Vào phòng thành công!"))
+                feedback_color = (50, 255, 50)
+                quick_join_start_time = None
+                is_processing_join = False  # Reset trạng thái xử lý
+                # Luôn cập nhật danh sách phòng sau khi có thay đổi
+                network.send_message({"action": "FIND_ROOM"})
 
         elif status == "OPPONENT_JOINED":
             # Server may send either 'opponent' (single player) or full 'room_data'.
@@ -661,15 +831,26 @@ while running:
                 current_room = message.get("room_data")
             elif current_room and message.get("opponent"):
                 current_room["player2"] = message.get("opponent")
-            feedback_msg = message.get("message", "")
+            feedback_msg = clean_text(message.get("message", ""))
             
         elif status == "ROOM_LIST":
             available_rooms = message.get("rooms", [])
             print(f"[DEBUG] Nhận được danh sách phòng: {available_rooms}")
             current_page = 0  # Reset về trang đầu tiên khi nhận danh sách mới
-            feedback_msg = "Đã cập nhật danh sách phòng" # Hiển thị thông báo
-            feedback_color = (255, 255, 255)
-
+            # Bỏ thông báo cập nhật danh sách phòng
+            
+        elif status == "OPPONENT_READY":
+            # Cập nhật trạng thái sẵn sàng của đối thủ
+            is_ready = message.get("is_ready", False)
+            if current_room:
+                # Tìm đối thủ và cập nhật trạng thái
+                if current_room.get("player1", {}).get("user_id") != user_data.get("user_id"):
+                    if "player1" not in current_room:
+                        current_room["player1"] = {}
+                    current_room["player1"]["is_ready"] = is_ready
+                elif current_room.get("player2"):
+                    current_room["player2"]["is_ready"] = is_ready
+            print(f"[OPPONENT READY] Đối thủ {'sẵn sàng' if is_ready else 'chưa sẵn sàng'}")
 
         elif status == "ERROR":  # Thay vì JOIN_ROOM_FAILED, server sẽ gửi ERROR
             error_msg = message.get("message", "Lỗi không xác định.")
@@ -693,6 +874,9 @@ while running:
             turn_status = message.get("turn")  # "YOU" hoặc "OPPONENT"
             is_my_turn = (turn_status == "YOU")
             score_data = message.get("score")
+            
+            # Khởi tạo timer cho lượt đầu tiên
+            turn_start_time = pygame.time.get_ticks()
             
             # Lưu my_user_id
             my_user_id = user_data.get("user_id") if user_data else None
@@ -732,6 +916,7 @@ while running:
                 # Cập nhật bàn cờ với ID của đối thủ
                 game_board[row][col] = player_id
                 is_my_turn = True
+                turn_start_time = pygame.time.get_ticks()  # Bắt đầu đếm thời gian lượt mới
                 
                 # Lưu opponent_user_id nếu chưa có
                 if opponent_user_id is None:
@@ -744,6 +929,8 @@ while running:
             game_state = "GAME_OVER_SCREEN"
             game_result = message.get("result")  # WIN, LOSE, TIMEOUT_WIN, TIMEOUT_LOSE, OPPONENT_LEFT_WIN
             game_score = message.get("score", {})
+            game_end_reason = message.get("reason", "")  # Lý do kết thúc game
+            game_end_message = message.get("message", "")  # Thông điệp từ server
 
             # Tự động tìm opponent_user_id từ score nếu chưa có
             if opponent_user_id is None and game_score and my_user_id is not None:
@@ -752,6 +939,7 @@ while running:
                     print(f"[GAME OVER] Tự động phát hiện opponent_user_id: {opponent_user_id}")
             
             print(f"[GAME OVER] Kết quả: {game_result}")
+            print(f"[GAME OVER] Lý do: {game_end_reason}")
             print(f"[GAME OVER] Score nhận từ server: {game_score}")
             print(f"[GAME OVER] My user_id: {my_user_id}")
             print(f"[GAME OVER] Opponent user_id: {opponent_user_id}")
@@ -760,8 +948,36 @@ while running:
                 opp_score = get_score_for_user(game_score, opponent_user_id)
                 print(f"[GAME OVER] My score: {my_score}, Opponent score: {opp_score}")
             
-            feedback_msg = ""
+            # Hiển thị thông điệp từ server (có thông tin về đầu hàng)
+            if game_end_message:
+                feedback_msg = game_end_message
+            else:
+                feedback_msg = ""
             feedback_color = (255, 255, 255)
+        
+        # [MỚI] Xử lý khi có người timeout  
+        elif status == "TURN_TIMEOUT":
+            timeout_msg = message.get("message", "Ai đó đã hết thời gian!")
+            my_turn = message.get("my_turn", False)
+            game_board = message.get("board")
+            turn_info = message.get("turn", "")
+            
+            if game_board:
+                board = game_board
+            
+            # Cập nhật trạng thái lượt đi cho cả hai biến
+            current_turn = "YOU" if my_turn else "OPPONENT"
+            is_my_turn = my_turn
+            
+            # Reset timer cho lượt mới
+            turn_start_time = pygame.time.get_ticks()
+            
+            print(f"[TURN_TIMEOUT] {timeout_msg}, My turn: {my_turn}, Turn: {turn_info}")
+            print(f"[CLIENT DEBUG] current_turn đã được set thành: {current_turn}")
+            print(f"[CLIENT DEBUG] is_my_turn đã được set thành: {is_my_turn}")
+            print(f"[CLIENT DEBUG] my_user_id: {my_user_id}")
+            feedback_msg = timeout_msg
+            feedback_color = (255, 255, 0)
         
         # [MỚI] Xử lý khi đối thủ muốn chơi lại
         elif status == "OPPONENT_REMATCH":
@@ -782,6 +998,10 @@ while running:
         quit_button.check_hover(mouse_pos)
         play_button.draw(screen)
         quit_button.draw(screen)
+        
+        # Hiển thị thông báo force logout nếu có
+        if feedback_msg:
+            draw_text(feedback_msg, font_medium, SCREEN_WIDTH / 2, 200, feedback_color)
     
     # --- Vẽ Màn hình LOGIN ---
     elif game_state == "LOGIN":
@@ -795,7 +1015,7 @@ while running:
         register_button.draw(screen)
         back_button.draw(screen)
         if feedback_msg:
-            draw_text(feedback_msg, font_medium, SCREEN_WIDTH / 2, 510, feedback_color)
+            draw_text(feedback_msg, font_medium, SCREEN_WIDTH / 2, 570, feedback_color)
             
     # --- Vẽ Màn hình LOBBY ---
     elif game_state == "LOBBY":
@@ -815,31 +1035,59 @@ while running:
         find_room_button.draw(screen)
         logout_button.draw(screen)
         if feedback_msg:
-            draw_text(feedback_msg, font_medium, SCREEN_WIDTH / 2, 450, feedback_color)
+            draw_text(feedback_msg, font_medium, SCREEN_WIDTH / 2, 500, feedback_color)
 
     # --- Vẽ Màn hình CREATE_ROOM_FORM ---
     elif game_state == "CREATE_ROOM_FORM":
-        draw_text("Cài đặt phòng", font_large, SCREEN_WIDTH / 2, 100)
-        draw_text("Mật khẩu (bỏ trống nếu không cần):", font_small, comp_x, 180, center=False)
+        # Title
+        draw_text("Cài đặt phòng", font_large, SCREEN_WIDTH / 2, 80)
+
+        # Main panel
+        panel_x = 80
+        panel_y = 160
+        panel_w = SCREEN_WIDTH - 2 * panel_x
+        panel_h = 380
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
+        pygame.draw.rect(screen, theme.SURFACE, panel_rect, border_radius=theme.RADIUS)
+
+        # Tính toán vị trí input để căn giữa trong panel
+        input_x = (SCREEN_WIDTH - comp_width) // 2
+        
+        # Password section
+        password_label_y = panel_y + 40
+        password_input_y = panel_y + 70
+        draw_text("Mật khẩu (bỏ trống nếu không cần):", font_small, input_x, password_label_y, color=theme.SUBTEXT, center=False)
+        create_room_password_input.rect.topleft = (input_x, password_input_y)
         create_room_password_input.draw(screen)
-        draw_text("Thời gian mỗi lượt (giây):", font_small, comp_x, 280, center=False)
+
+        # Time limit section
+        time_label_y = panel_y + 150
+        time_input_y = panel_y + 180
+        draw_text("Thời gian mỗi lượt (giây):", font_small, input_x, time_label_y, color=theme.SUBTEXT, center=False)
+        create_room_time_input.rect.topleft = (input_x, time_input_y)
         create_room_time_input.draw(screen)
+
+        # Confirm button (centered in panel)
+        create_room_confirm_button.rect.centerx = SCREEN_WIDTH // 2
+        create_room_confirm_button.rect.y = panel_y + 260
         create_room_confirm_button.check_hover(mouse_pos)
         create_room_confirm_button.draw(screen)
+
+        # Back button
         back_button.check_hover(mouse_pos)
         back_button.draw(screen)
+        
+        # Feedback message
         if feedback_msg:
-            draw_text(feedback_msg, font_medium, SCREEN_WIDTH / 2, 510, feedback_color)
+            draw_text(feedback_msg, font_medium, SCREEN_WIDTH / 2, panel_y + panel_h + 40, feedback_color)
 
     # --- Vẽ Màn hình FIND_ROOM ---
     elif game_state == "FIND_ROOM":
-        draw_text("Danh sách phòng", font_large, SCREEN_WIDTH / 2, 50)
+        draw_text("Danh sách phòng", font_large, SCREEN_WIDTH / 2, 60)
         
-        # Vẽ nút làm mới và quay lại
+        # Vẽ nút làm mới ở góc phải trên
         refresh_button.check_hover(mouse_pos)
         refresh_button.draw(screen)
-        back_button.check_hover(mouse_pos)
-        back_button.draw(screen)
         
         # Tính toán số trang
         if available_rooms:
@@ -847,120 +1095,107 @@ while running:
             start_idx = current_page * rooms_per_page
             end_idx = min(start_idx + rooms_per_page, len(available_rooms))
             
+            # Container cho danh sách phòng
+            list_container_y = 120
+            list_container_height = 400
+            
             # Hiển thị thông tin từng phòng
             for i in range(start_idx, end_idx):
                 room = available_rooms[i]
-                y_pos = 120 + (i - start_idx) * 60
+                y_pos = list_container_y + (i - start_idx) * 90
                 
-                # Vẽ background cho phòng
-                pygame.draw.rect(screen, (50, 50, 50), (50, y_pos, SCREEN_WIDTH - 100, 50))
+                # Vẽ background cho phòng với padding
+                room_rect = pygame.Rect(80, y_pos, SCREEN_WIDTH - 160, 75)
+                pygame.draw.rect(screen, (45, 45, 50), room_rect, border_radius=10)
                 
-                # Thông tin phòng và nút Join
+                # Thông tin phòng
                 has_password = room.get('has_password', False)
-                room_text = f"Room {room.get('room_id')} - Host: {room.get('host_name')} {'🔒' if has_password else ''}"
-                join_btn_rect = pygame.Rect(SCREEN_WIDTH - 200, y_pos + 5, 80, 40)
-                join_btn_color = (0, 200, 0) if join_btn_rect.collidepoint(mouse_pos) else (0, 150, 0)
-                pygame.draw.rect(screen, join_btn_color, join_btn_rect)
-                draw_text("Join", font_small, join_btn_rect.centerx, join_btn_rect.centery)
-                draw_text(room_text, font_medium, SCREEN_WIDTH/2 - 150, y_pos + 25, center=False)
-                if room.get('has_password'):
-                    room_text += " 🔒"
-                room_surface = font_medium.render(room_text, True, (255, 255, 255))
-                screen.blit(room_surface, (60, y_pos + 15))
-
+                room_id = room.get('room_id', 'N/A')
+                host_name = room.get('host_name', 'Unknown')
+                password_text = " (Có mật khẩu)" if has_password else ""
+                room_text = f"Room {room_id} - Host: {host_name}{password_text}"
+                
+                # Tính toán vị trí căn chỉnh chính xác
+                text_y = y_pos + 37  # Trung tâm của room card
+                button_y = y_pos + 20  # Căn chỉnh với text
+                
+                # Vẽ text thông tin phòng bằng pygame.font.render để control chính xác
+                text_surface = font_medium.render(room_text, True, (220, 220, 220))
+                screen.blit(text_surface, (110, text_y - text_surface.get_height()//2))
+                
                 # Vẽ nút Join
-                join_btn_rect = pygame.Rect(SCREEN_WIDTH - 160, y_pos + 10, 100, 30)
-                join_btn_color = (0, 255, 0) if join_btn_rect.collidepoint(mouse_pos) else (0, 200, 0)
-                pygame.draw.rect(screen, join_btn_color, join_btn_rect)
+                join_btn_rect = pygame.Rect(SCREEN_WIDTH - 170, button_y, 80, 35)
+                join_btn_color = (0, 220, 0) if join_btn_rect.collidepoint(mouse_pos) else (0, 180, 0)
+                pygame.draw.rect(screen, join_btn_color, join_btn_rect, border_radius=6)
                 
-                # Text "Join"
-                join_text = font_small.render("Join", True, (255, 255, 255))
-                text_rect = join_text.get_rect(center=join_btn_rect.center)
-                screen.blit(join_text, text_rect)
-                
-                # Xử lý click
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and join_btn_rect.collidepoint(event.pos):
-                    current_time = pygame.time.get_ticks()
-                    
-                    # Kiểm tra cooldown và trạng thái xử lý
-                    if current_time - last_click_time >= click_cooldown and not is_processing_join:
-                        last_click_time = current_time
-                        is_processing_join = True
-                        
-                        room_id = str(room.get('room_id'))
-                        if room.get('has_password'):
-                            join_room_code_input.text = room_id
-                            join_room_password_input.text = ""
-                            game_state = "JOIN_ROOM_FORM"
-                            feedback_msg = ""
-                        else:
-                            print(f"[GAME] Gửi yêu cầu vào phòng {room_id}")
-                            try:
-                                network.send_message({
-                                    "action": "JOIN_ROOM",
-                                    "room_id": room_id,
-                                    "password": ""
-                                })
-                                feedback_msg = "Đang vào phòng..."
-                                feedback_color = (255, 255, 255)
-                            except Exception as e:
-                                print(f"[ERROR] Lỗi khi gửi yêu cầu join room: {e}")
-                                feedback_msg = "Lỗi kết nối! Vui lòng thử lại."
-                                feedback_color = (255, 50, 50)
-                                is_processing_join = False
+                # Text "Join" căn giữa button
+                draw_text("Join", font_small, join_btn_rect.centerx, join_btn_rect.centery, (255, 255, 255))
             
-            # Hiển thị điều hướng trang
+            # Hiển thị điều hướng trang ở dưới
+            page_nav_y = SCREEN_HEIGHT - 120
             if current_page > 0:
+                prev_page_button.rect.y = page_nav_y
                 prev_page_button.check_hover(mouse_pos)
                 prev_page_button.draw(screen)
             if current_page < total_pages - 1:
+                next_page_button.rect.y = page_nav_y
                 next_page_button.check_hover(mouse_pos)
                 next_page_button.draw(screen)
             
-            # Hiển thị thông tin trang
-            page_info = f"Page {current_page + 1}/{total_pages}"
-            page_text = font_small.render(page_info, True, (255, 255, 255))
-            screen.blit(page_text, (SCREEN_WIDTH//2 - page_text.get_width()//2, SCREEN_HEIGHT - 50))
+            # Hiển thị thông tin trang ở giữa
+            page_info = f"Trang {current_page + 1}/{total_pages}"
+            draw_text(page_info, font_small, SCREEN_WIDTH//2, page_nav_y + 25, (180, 180, 180))
         else:
-            draw_text("No rooms available", font_medium, SCREEN_WIDTH//2, SCREEN_HEIGHT//2)
+            # Hiển thị thông báo không có phòng ở giữa màn hình
+            draw_text("Không có phòng nào", font_medium, SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 50, (150, 150, 150))
+            draw_text("Nhấn 'Làm mới' để cập nhật danh sách", font_small, SCREEN_WIDTH//2, SCREEN_HEIGHT//2, (120, 120, 120))
         
+        # Nút quay lại ở góc trái dưới
+        back_button.check_hover(mouse_pos)
+        back_button.draw(screen)
+        
+        # Feedback message ở dưới cùng
         if feedback_msg:
-            draw_text(feedback_msg, font_medium, SCREEN_WIDTH//2, SCREEN_HEIGHT - 100, feedback_color)
+            draw_text(feedback_msg, font_medium, SCREEN_WIDTH//2, SCREEN_HEIGHT - 60, feedback_color)
 
     # --- Vẽ Màn hình JOIN_ROOM_FORM ---
     elif game_state == "JOIN_ROOM_FORM":
         # Title
-        draw_text("🎮 Vào phòng chơi", font_large, SCREEN_WIDTH / 2, 80)
+        draw_text("Vào phòng chơi", font_large, SCREEN_WIDTH / 2, 80)
 
         # Panel card for inputs
-        panel_x = 60
-        panel_y = 120
+        panel_x = 80
+        panel_y = 160
         panel_w = SCREEN_WIDTH - 2 * panel_x
-        panel_h = 360
+        panel_h = 380
         panel_rect = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
         pygame.draw.rect(screen, theme.SURFACE, panel_rect, border_radius=theme.RADIUS)
 
         # Subtitle / helper bar inside panel
-        hint_rect = pygame.Rect(panel_x + 20, panel_y + 12, panel_w - 40, 44)
+        hint_rect = pygame.Rect(panel_x + 20, panel_y + 20, panel_w - 40, 44)
         pygame.draw.rect(screen, theme.MUTED, hint_rect, border_radius=8)
         draw_text("Mã phòng có 5 ký tự (chữ in hoa và số)", font_small, hint_rect.centerx, hint_rect.centery, color=theme.SUBTEXT)
 
         # Position inputs inside panel (centered horizontally)
         input_x = (SCREEN_WIDTH - comp_width) // 2
-        join_room_code_input.rect.topleft = (input_x, panel_y + 80)
-        join_room_password_input.rect.topleft = (input_x, panel_y + 160)
-
-        # Labels (left aligned to input)
-        label_x = input_x
-        draw_text("Mã phòng:", font_small, label_x, panel_y + 60, color=theme.SUBTEXT, center=False)
+        
+        # Room code section
+        code_label_y = panel_y + 90
+        code_input_y = panel_y + 115
+        draw_text("Mã phòng:", font_small, input_x, code_label_y, color=theme.SUBTEXT, center=False)
+        join_room_code_input.rect.topleft = (input_x, code_input_y)
         join_room_code_input.draw(screen)
 
-        draw_text("Mật khẩu (nếu có):", font_small, label_x, panel_y + 140, color=theme.SUBTEXT, center=False)
+        # Password section
+        password_label_y = panel_y + 180
+        password_input_y = panel_y + 205
+        draw_text("Mật khẩu (nếu có):", font_small, input_x, password_label_y, color=theme.SUBTEXT, center=False)
+        join_room_password_input.rect.topleft = (input_x, password_input_y)
         join_room_password_input.draw(screen)
 
         # Confirm button (centered)
         join_room_confirm_button.rect.centerx = SCREEN_WIDTH // 2
-        join_room_confirm_button.rect.y = panel_y + 240
+        join_room_confirm_button.rect.y = panel_y + 280
         join_room_confirm_button.check_hover(mouse_pos)
         join_room_confirm_button.draw(screen)
 
@@ -970,7 +1205,7 @@ while running:
 
         # Feedback
         if feedback_msg:
-            draw_text(feedback_msg, font_medium, SCREEN_WIDTH / 2, panel_y + panel_h + 24, color=feedback_color)
+            draw_text(feedback_msg, font_medium, SCREEN_WIDTH / 2, panel_y + panel_h + 35, color=feedback_color)
 
     # --- Vẽ Màn hình QUICK_JOIN_WAITING ---
     elif game_state == "QUICK_JOIN_WAITING":
@@ -985,7 +1220,7 @@ while running:
             
     # --- Vẽ Màn hình IN_ROOM_WAITING (Phòng chờ) ---
     elif game_state == "IN_ROOM_WAITING":
-        draw_text("Phòng chờ", font_large, SCREEN_WIDTH / 2, 100)
+        draw_text("Phòng chờ", font_large, SCREEN_WIDTH / 2, 120)
         
         if current_room:
             # Hiển thị mã phòng
@@ -996,143 +1231,236 @@ while running:
             player1_data = current_room.get("player1", {})
             if player1_data:
                 p1_name = player1_data.get("username", "Đang tải...")
-                p1_ready = "(Sẵn sàng)" if player1_data.get("is_ready") else ""
-                draw_text(f"Người chơi 1: {p1_name} {p1_ready}", font_medium, 
-                         SCREEN_WIDTH / 2, 250, (0, 255, 255))
+                p1_ready = player1_data.get("is_ready", False)
+                p1_status = " ✓" if p1_ready else " ✗"
+                p1_color = (0, 255, 0) if p1_ready else (255, 100, 100)
+                draw_text(f"Người chơi 1: {p1_name}{p1_status}", font_medium, 
+                         SCREEN_WIDTH / 2, 240, p1_color)
             else:
                 draw_text("Người chơi 1: Đang tải...", font_medium,
-                         SCREEN_WIDTH / 2, 250, (0, 255, 255))
+                         SCREEN_WIDTH / 2, 240, (255, 255, 255))
             
             # Hiển thị thông tin người chơi 2
             player2_data = current_room.get("player2", None)
             if player2_data:
                 p2_name = player2_data.get("username", "Lỗi tên")
-                p2_ready = "(Sẵn sàng)" if player2_data.get("is_ready") else ""
-                draw_text(f"Người chơi 2: {p2_name} {p2_ready}", font_medium, 
-                         SCREEN_WIDTH / 2, 300, (255, 165, 0))
+                p2_ready = player2_data.get("is_ready", False)
+                p2_status = " ✓" if p2_ready else " ✗"
+                p2_color = (0, 255, 0) if p2_ready else (255, 100, 100)
+                draw_text(f"Người chơi 2: {p2_name}{p2_status}", font_medium, 
+                         SCREEN_WIDTH / 2, 280, p2_color)
             else:
                 draw_text("Người chơi 2: Đang chờ đối thủ...", font_medium, 
-                         SCREEN_WIDTH / 2, 300, (255, 165, 0))
+                         SCREEN_WIDTH / 2, 280, (255, 165, 0))
+                         
+        # Kiểm tra trạng thái sẵn sàng của người chơi hiện tại
+        my_ready_status = False
+        if current_room and user_data:
+            my_user_id = user_data.get("user_id")
+            player1_data = current_room.get("player1", {})
+            player2_data = current_room.get("player2", {})
+            
+            if player1_data.get("user_id") == my_user_id:
+                my_ready_status = player1_data.get("is_ready", False)
+            elif player2_data.get("user_id") == my_user_id:
+                my_ready_status = player2_data.get("is_ready", False)
+        
+        # Hiển thị hướng dẫn cho người dùng
+        if current_room:
+            if my_ready_status:
+                draw_text("Bạn đã sẵn sàng. Nhấn 'Hủy sẵn sàng' để thay đổi", font_small, SCREEN_WIDTH / 2, 340, (0, 255, 0))
+            else:
+                draw_text("Nhấn 'Sẵn sàng' khi bạn đã chuẩn bị để chơi", font_small, SCREEN_WIDTH / 2, 340, (200, 200, 200))
+
+        # Vẽ các nút Sẵn sàng/Hủy sẵn sàng và Rời phòng
+        ready_button.check_hover(mouse_pos)
+        
+        # Thay đổi text nút dựa trên trạng thái
+        if my_ready_status:
+            ready_button.text = "Hủy sẵn sàng"
+            ready_button.color = (255, 165, 0)  # Màu cam cho nút hủy
+        else:
+            ready_button.text = "Sẵn sàng"
+            ready_button.color = (0, 128, 255)  # Màu xanh cho nút sẵn sàng
+        
+        # Vẽ các nút (vị trí đã được thiết lập trong khởi tạo)
+        ready_button.draw(screen)
+        
+        leave_room_button.check_hover(mouse_pos)
+        leave_room_button.draw(screen)
 
         try:
             if feedback_msg:
-                draw_text(feedback_msg, font_medium, SCREEN_WIDTH / 2, 450, feedback_color)
+                draw_text(feedback_msg, font_medium, SCREEN_WIDTH / 2, 520, feedback_color)
         except Exception as e:
             print(f"[ERROR] Lỗi khi hiển thị feedback: {e}")
-        # (Sẽ thêm nút Sẵn sàng, Rời phòng ở đây)
 
     # --- Vẽ Màn hình PLAYING (Đang chơi) ---
     elif game_state == "PLAYING":
-        # print(f"[DEBUG RENDER PLAYING] player_role={player_role}, is_my_turn={is_my_turn}, game_board={'exists' if game_board else 'None'}")
-        
         # Vẽ background
         screen.fill(theme.BG)
         
         # Vẽ tiêu đề
         draw_text("ĐANG CHƠI", font_medium, SCREEN_WIDTH / 2, 30, (0, 255, 0))
         
-        # === PHẦN HIỂN THỊ THÔNG TIN 2 NGƯỜI CHƠI ===
-        # Layout: Avatar trên, tên/username dưới (cấu trúc dọc)
-        player_panel_y = 55
-        avatar_radius = 25
+        # === LAYOUT THEO MẪU: Game board bên trái, Panel tách biệt bên phải ===
         
-        # BẠN - Bên trái
-        my_avatar_x = SCREEN_WIDTH // 4  # 25% từ trái
-        my_avatar_y = player_panel_y + 10
-        
-        # Vẽ avatar (hình tròn)
-        pygame.draw.circle(screen, (0, 150, 255), (my_avatar_x, my_avatar_y), avatar_radius)
-        my_first_char = (my_username[0].upper() if my_username else "?")
-        draw_text(my_first_char, font_medium, my_avatar_x, my_avatar_y, (255, 255, 255))
-        
-        # Username và Role trên cùng 1 dòng
-        username_role_text = f"{my_username if my_username else 'Đang tải...'} ({player_role if player_role else '?'})"
-        draw_text(username_role_text, font_small, my_avatar_x, my_avatar_y + 50, (150, 200, 255))
-        
-        # ĐỐI THỦ - Bên phải
-        opp_avatar_x = (3 * SCREEN_WIDTH) // 4  # 75% từ trái
-        opp_avatar_y = player_panel_y + 10
-        opp_role = "X" if player_role == "O" else "O"
-        
-        # Vẽ avatar (hình tròn)
-        pygame.draw.circle(screen, (255, 100, 100), (opp_avatar_x, opp_avatar_y), avatar_radius)
-        opp_first_char = (opponent_username[0].upper() if opponent_username else "?")
-        draw_text(opp_first_char, font_medium, opp_avatar_x, opp_avatar_y, (255, 255, 255))
-        
-        # Username dưới avatar
-        draw_text(opponent_username if opponent_username else "Đang tải...", font_small, opp_avatar_x, opp_avatar_y + 50, (255, 180, 180))
-        
-        # Role (X hoặc O) dưới username
-        draw_text(opp_role if opp_role else "?", font_small, opp_avatar_x, opp_avatar_y + 70, (255, 255, 100))
-        
-        # Hiển thị trạng thái lượt đi
-        turn_text = "Lượt của bạn!" if is_my_turn else "Lượt đối thủ..."
-        turn_color = (0, 255, 0) if is_my_turn else (255, 100, 100)
-        draw_text(turn_text, font_small, SCREEN_WIDTH / 2, 145, turn_color)
-        
+        # === GAME BOARD BÊN TRÁI ===
         # Vẽ bàn cờ nếu có
         if game_board:
-            # Tính toán vị trí board để căn giữa
+            # Vị trí board ở bên trái, không bị panel đè
             board_width = board_size * cell_size
             board_height = board_size * cell_size
-            centered_board_offset_x = (SCREEN_WIDTH - board_width) // 2
-            centered_board_offset_y = 160  # Khoảng cách từ trên xuống
+            board_offset_x = 50  # Sát bên trái
+            board_offset_y = 80
             
-            # Vẽ lưới với màu sáng hơn (200, 200, 200) thay vì (100, 100, 100)
+            # Vẽ lưới
             grid_color = (200, 200, 200)
             for row in range(board_size + 1):
-                y = centered_board_offset_y + row * cell_size
+                y = board_offset_y + row * cell_size
                 pygame.draw.line(screen, grid_color, 
-                               (centered_board_offset_x, y), 
-                               (centered_board_offset_x + board_width, y), 2)
+                               (board_offset_x, y), 
+                               (board_offset_x + board_width, y), 2)
             
             for col in range(board_size + 1):
-                x = centered_board_offset_x + col * cell_size
+                x = board_offset_x + col * cell_size
                 pygame.draw.line(screen, grid_color, 
-                               (x, centered_board_offset_y), 
-                               (x, centered_board_offset_y + board_height), 2)
+                               (x, board_offset_y), 
+                               (x, board_offset_y + board_height), 2)
             
-            # Vẽ các quân cờ
+            # Vẽ các quân cờ với style đẹp hơn
             for row in range(board_size):
                 for col in range(board_size):
                     cell_value = game_board[row][col]
                     if cell_value != 0:  # Có quân cờ
-                        x = centered_board_offset_x + col * cell_size + cell_size // 2
-                        y = centered_board_offset_y + row * cell_size + cell_size // 2
+                        cell_x = board_offset_x + col * cell_size
+                        cell_y = board_offset_y + row * cell_size
+                        # Điều chỉnh center để quân cờ căn giữa hoàn hảo với offset nhỏ
+                        center_x = cell_x + cell_size / 2.0 + 2
+                        center_y = cell_y + cell_size / 2.0 + 2
 
-                        # Xác định ký hiệu (symbol) và màu (color)
-                        # game_board có thể lưu user_id (chuỗi/số) hoặc 1/2 -> xử lý cả hai trường hợp
+                        # Xác định ký hiệu và màu
                         my_sym = player_role if player_role in ("X", "O") else "X"
                         opp_sym = "O" if my_sym == "X" else "X"
 
                         symbol = None
-                        # So sánh với user_id nếu server lưu user_id lên board
                         if my_user_id is not None and cell_value == my_user_id:
                             symbol = my_sym
+                            color = (0, 150, 255)  # Xanh cho mình
                         elif opponent_user_id is not None and cell_value == opponent_user_id:
-                            symbol = opp_sym
+                            symbol = opp_sym  
+                            color = (255, 100, 100)  # Đỏ cho đối thủ
                         else:
-                            # Fallback: nếu server dùng 1/2
+                            # Fallback
                             try:
                                 if int(cell_value) == 1:
                                     symbol = "X"
+                                    color = (0, 150, 255)
                                 elif int(cell_value) == 2:
                                     symbol = "O"
+                                    color = (255, 100, 100)
                                 else:
                                     symbol = "?"
+                                    color = (255, 255, 0)
                             except Exception:
                                 symbol = "?"
+                                color = (255, 255, 0)
 
-                        if symbol == "X":
-                            color = (255, 0, 0)
-                        elif symbol == "O":
-                            color = (0, 100, 255)
-                        else:
-                            color = (255, 255, 0)
-
-                        draw_text(symbol, font_small, x, y, color)
+                        # Vẽ background cho ô có quân (tùy chọn)
+                        # pygame.draw.rect(screen, (60, 60, 60), (cell_x + 2, cell_y + 2, cell_size - 4, cell_size - 4))
+                        
+                        # Vẽ quân cờ với font nhỏ hơn và căn giữa chính xác
+                        draw_text(symbol, font_small, center_x, center_y, color)
+        
+        # === PANEL BÊN PHẢI (theo mẫu) ===
+        panel_x = 650
+        panel_y = 80
+        panel_width = 300
+        panel_height = 400
+        
+        # Vẽ background panel theo mẫu
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+        pygame.draw.rect(screen, (50, 50, 50), panel_rect)  # Background
+        pygame.draw.rect(screen, (150, 150, 150), panel_rect, 3)  # Border
+        
+        # Center của panel
+        panel_center_x = panel_x + panel_width // 2
+        
+        # Nội dung panel theo mẫu
+        content_y = panel_y + 30
+        
+        # Thông tin BẠN và ĐỐI THỦ trên cùng 1 hàng
+        draw_text("Bạn", font_medium, panel_x + 80, content_y, (0, 150, 255))
+        draw_text("Đối Thủ", font_medium, panel_x + 220, content_y, (255, 100, 100))
+        
+        # Thông tin chi tiết
+        content_y += 40
+        my_info = f"{my_username if my_username else 'Bạn'}"
+        opp_info = f"{opponent_username if opponent_username else 'Đối thủ'}"
+        draw_text(my_info, font_small, panel_x + 80, content_y, (150, 200, 255))
+        draw_text(opp_info, font_small, panel_x + 220, content_y, (255, 150, 150))
+        
+        # Role (X/O)
+        content_y += 25
+        my_role_text = f"({player_role if player_role else '?'})"
+        opp_role = "X" if player_role == "O" else "O" 
+        opp_role_text = f"({opp_role})"
+        draw_text(my_role_text, font_small, panel_x + 80, content_y, (150, 200, 255))
+        draw_text(opp_role_text, font_small, panel_x + 220, content_y, (255, 150, 150))
+        
+        # Trạng thái lượt (căn giữa)
+        content_y += 60
+        turn_text = "Lượt"
+        draw_text(turn_text, font_medium, panel_center_x, content_y, (255, 255, 255))
+        
+        content_y += 35
+        if is_my_turn:
+            status_text = "Lượt Của Bạn!"
+            status_color = (0, 255, 0)
         else:
-            draw_text("Đang tải bàn cờ...", font_medium, SCREEN_WIDTH / 2, 300)
+            status_text = "Lượt Đối Thủ"
+            status_color = (255, 165, 0)
+        draw_text(status_text, font_medium, panel_center_x, content_y, status_color)
+        
+        # Timer
+        content_y += 60
+        draw_text("Thời Gian", font_medium, panel_center_x, content_y, (255, 255, 255))
+        
+        content_y += 35
+        if is_my_turn and turn_start_time is not None:
+            current_time = pygame.time.get_ticks()
+            elapsed_time = (current_time - turn_start_time) / 1000.0
+            remaining_time = max(0, TURN_TIMEOUT - elapsed_time)
+            
+            timer_text = f"{remaining_time:.1f}s"
+            timer_color = (255, 0, 0) if remaining_time < 10 else (255, 255, 255)
+            draw_text(timer_text, font_medium, panel_center_x, content_y, timer_color)
+            
+            # Progress bar đơn giản
+            bar_width = panel_width - 40
+            bar_height = 8
+            bar_x = panel_x + 20
+            bar_y = content_y + 40
+            
+            # Background bar
+            pygame.draw.rect(screen, (100, 100, 100), (bar_x, bar_y, bar_width, bar_height))
+            
+            # Progress
+            progress = remaining_time / TURN_TIMEOUT
+            progress_width = int(bar_width * progress)
+            if remaining_time < 10:
+                progress_color = (255, 0, 0)
+            else:
+                progress_color = (0, 255, 0)
+                
+            if progress_width > 0:
+                pygame.draw.rect(screen, progress_color, (bar_x, bar_y, progress_width, bar_height))
+        else:
+            draw_text("Chờ đối thủ...", font_small, panel_center_x, content_y, (150, 150, 150))
+        
+        # Nút đầu hàng ở cuối panel (theo mẫu)
+        surrender_button.check_hover(mouse_pos)
+        surrender_button.draw(screen)
 
     # --- Vẽ Màn hình GAME_OVER_SCREEN ---
     elif game_state == "GAME_OVER_SCREEN":
@@ -1140,7 +1468,7 @@ while running:
         
         # Tiêu đề dựa trên kết quả
         if game_result in ["WIN", "TIMEOUT_WIN", "OPPONENT_LEFT_WIN"]:
-            title = "CHIẾN THẮNG! 🎉"
+            title = "CHIẾN THẮNG!"
             title_color = (0, 255, 0)
             if game_result == "TIMEOUT_WIN":
                 subtitle = "Đối thủ hết giờ"
@@ -1148,8 +1476,12 @@ while running:
                 subtitle = "Đối thủ đã rời game"
             else:
                 subtitle = "Bạn đã thắng!"
+        elif game_result == "DRAW":
+            title = "HÒA!"
+            title_color = (255, 255, 0)
+            subtitle = "Cả hai cùng hết giờ"
         else:  # LOSE, TIMEOUT_LOSE
-            title = "THUA CUỘC 😢"
+            title = "THUA CUỘC"
             title_color = (255, 0, 0)
             if game_result == "TIMEOUT_LOSE":
                 subtitle = "Bạn đã hết giờ"

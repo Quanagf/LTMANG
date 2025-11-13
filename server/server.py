@@ -59,17 +59,22 @@ async def handle_message(websocket, message):
         # --- [MỚI] Thêm các chức năng Phòng chờ & Game (Sẽ làm sau) ---
         elif action == "UPDATE_SETTINGS":
             await game_logic.handle_update_settings(websocket, payload)
-        elif action == "READY": # Thay cho "Bắt đầu game"
-             await game_logic.handle_ready(websocket, payload)
+        elif action == "READY" or action == "PLAYER_READY": # Thay cho "Bắt đầu game"
+             await game_logic.handle_ready(websocket, payload if payload else {})
         elif action == "LEAVE_ROOM":
              await game_logic.handle_leave_room(websocket)
         
         elif action == "MOVE" or action == "MAKE_MOVE":
              await game_logic.handle_move(websocket, payload)
+        elif action == "SURRENDER":
+             await game_logic.handle_surrender(websocket, payload)
         elif action == "CHAT":
              await game_logic.handle_chat(websocket, payload)
         elif action == "REMATCH":
              await game_logic.handle_rematch(websocket, payload)
+        elif action == "TURN_TIMEOUT":
+             # Client báo timeout, server sẽ xử lý qua timer task
+             print(f"[DEBUG] Client báo TURN_TIMEOUT từ {getattr(websocket, 'user_id', 'unknown')}")
 
         
         # --- Hết ---
@@ -100,11 +105,29 @@ async def handle_login(websocket, payload):
             user_id = result['user_data']['user_id']
             username = result['user_data']['username']
             
-            # GÁN THÔNG TIN USER VÀO WEBSOCKET
+            # [MỚI] Kiểm tra xem tài khoản đã được đăng nhập ở nơi khác chưa
+            if user_id in CONNECTED_CLIENTS:
+                old_websocket = CONNECTED_CLIENTS[user_id]
+                # Thông báo cho client cũ về việc bị đăng xuất
+                try:
+                    await old_websocket.send(json.dumps({
+                        "status": "FORCE_LOGOUT",
+                        "message": "Tài khoản của bạn đã được đăng nhập ở thiết bị khác."
+                    }))
+                    print(f"[FORCE LOGOUT] Đã đăng xuất client cũ của user {username}")
+                except Exception as e:
+                    print(f"[WARNING] Không thể gửi thông báo đăng xuất cho client cũ: {e}")
+                # Xóa các thông tin liên quan của client cũ
+                if hasattr(old_websocket, 'user_id'):
+                    delattr(old_websocket, 'user_id')
+                if hasattr(old_websocket, 'username'):
+                    delattr(old_websocket, 'username')
+            
+            # GÁN THÔNG TIN USER VÀO WEBSOCKET MỚI
             websocket.user_id = user_id
             websocket.username = username
             
-            # Lưu lại kết nối
+            # Lưu lại kết nối mới
             CONNECTED_CLIENTS[user_id] = websocket
             print(f"[ĐĂNG NHẬP] User {username} (ID: {user_id}) đã kết nối.")
             
@@ -116,17 +139,44 @@ async def handle_login(websocket, payload):
     except KeyError:
         print("[LỖI ĐĂNG NHẬP] Tin nhắn LOGIN thiếu username hoặc password.")
         await websocket.send(json.dumps({"status": "ERROR", "message": "Yêu cầu đăng nhập thiếu thông tin."}))
+    except Exception as e:
+        print(f"[LỖI ĐĂNG NHẬP] {e}")
+        await websocket.send(json.dumps({"status": "ERROR", "message": "Lỗi đăng nhập."}))
 
 async def handle_register(websocket, payload):
     """Xử lý logic đăng ký."""
     try:
         username = payload['username']
         password = payload['password']
+        
+        # [MỚI] Validation server-side
+        if len(username) < 3:
+            await websocket.send(json.dumps({"status": "ERROR", "message": "Tên đăng nhập phải có ít nhất 3 ký tự."}))
+            return
+        
+        if len(username) > 20:
+            await websocket.send(json.dumps({"status": "ERROR", "message": "Tên đăng nhập không được quá 20 ký tự."}))
+            return
+            
+        if len(password) < 3:
+            await websocket.send(json.dumps({"status": "ERROR", "message": "Mật khẩu phải có ít nhất 3 ký tự."}))
+            return
+            
+        # Kiểm tra ký tự hợp lệ
+        import re
+        if not re.match(r'^[a-zA-Z0-9_-]+$', username):
+            await websocket.send(json.dumps({"status": "ERROR", "message": "Tên chỉ được chứa chữ, số, _ và -"}))
+            return
+        
         result = db_manager.register_user(username, password)
         await websocket.send(json.dumps(result))
+        
     except KeyError:
         print("[LỖI ĐĂNG KÝ] Tin nhắn REGISTER thiếu username hoặc password.")
         await websocket.send(json.dumps({"status": "ERROR", "message": "Yêu cầu đăng ký thiếu thông tin."}))
+    except Exception as e:
+        print(f"[LỖI ĐĂNG KÝ] {e}")
+        await websocket.send(json.dumps({"status": "ERROR", "message": "Lỗi đăng ký."}))
 
 # ----- Hàm Chính của Server -----
 
@@ -160,7 +210,7 @@ async def main_handler(websocket):
 async def start_server():
     """Khởi động WebSocket server."""
     async with websockets.serve(main_handler, SERVER_HOST, SERVER_PORT):
-        print(f"✅ Server WebSocket đang lắng nghe tại ws://{SERVER_HOST}:{SERVER_PORT}")
+        print(f"Server WebSocket đang lắng nghe tại ws://{SERVER_HOST}:{SERVER_PORT}")
         await asyncio.Future()
 
 if __name__ == "__main__":
