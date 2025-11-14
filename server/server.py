@@ -72,6 +72,13 @@ async def handle_message(websocket, message):
              await game_logic.handle_chat(websocket, payload)
         elif action == "REMATCH":
              await game_logic.handle_rematch(websocket, payload)
+        elif action == "GET_MATCH_HISTORY":
+             await handle_get_match_history(websocket, payload)
+        elif action == "GET_LEADERBOARD":
+             await handle_get_leaderboard(websocket, payload)
+        elif action == "TURN_TIMEOUT":
+             # Client báo timeout, server sẽ xử lý qua timer task
+             print(f"[DEBUG] Client báo TURN_TIMEOUT từ {getattr(websocket, 'user_id', 'unknown')}")
 
         
         # --- Hết ---
@@ -171,6 +178,53 @@ async def handle_register(websocket, payload):
     except KeyError:
         print("[LỖI ĐĂNG KÝ] Tin nhắn REGISTER thiếu username hoặc password.")
         await websocket.send(json.dumps({"status": "ERROR", "message": "Yêu cầu đăng ký thiếu thông tin."}))
+    except Exception as e:
+        print(f"[LỖI ĐĂNG KÝ] {e}")
+        await websocket.send(json.dumps({"status": "ERROR", "message": "Lỗi đăng ký."}))
+
+async def handle_get_match_history(websocket, payload):
+    """Xử lý yêu cầu lấy lịch sử trận đấu."""
+    try:
+        user_id = websocket.user_id
+        
+        # Lấy lịch sử từ database
+        matches = db_manager.get_match_history(user_id)
+        
+        await websocket.send(json.dumps({
+            "status": "MATCH_HISTORY",
+            "matches": matches
+        }))
+        
+    except Exception as e:
+        print(f"[LỖI MATCH_HISTORY] {e}")
+        await websocket.send(json.dumps({
+            "status": "ERROR", 
+            "message": "Không thể tải lịch sử trận đấu."
+        }))
+
+async def handle_get_leaderboard(websocket, payload):
+    """Xử lý yêu cầu lấy bảng xếp hạng."""
+    try:
+        # Lấy bảng xếp hạng từ database
+        players = db_manager.get_leaderboard()
+        
+        # Lấy thông tin rank của user hiện tại
+        user_rank_info = None
+        if hasattr(websocket, 'user_id') and websocket.user_id:
+            user_rank_info = db_manager.get_user_rank(websocket.user_id)
+        
+        await websocket.send(json.dumps({
+            "status": "LEADERBOARD",
+            "players": players,
+            "user_rank": user_rank_info
+        }))
+        
+    except Exception as e:
+        print(f"[LỖI LEADERBOARD] {e}")
+        await websocket.send(json.dumps({
+            "status": "ERROR", 
+            "message": "Không thể tải bảng xếp hạng."
+        }))
 
 # ----- Hàm Chính của Server -----
 
