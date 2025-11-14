@@ -1,0 +1,20 @@
+# === CARO GAME ONLINE - REQUIREMENTS ===
+# Core Dependencies
+pygame==2.5.2
+websockets==12.0
+websocket-client==1.6.4
+mysql-connector-python==8.2.0
+bcrypt==4.1.1
+
+# Development Dependencies (Optional)
+# pytest==7.4.3
+# black==23.11.0
+# flake8==6.1.0
+
+# === INSTALLATION INSTRUCTIONS ===
+# 1. Install Python 3.8+ 
+# 2. Run: pip install -r requirements.txt
+# 3. Setup MySQL database (see docs/SETUP.md)
+# 4. Configure server/config.py
+# 5. Run server: python server/server.py
+# 6. Run client: python client/main.py
