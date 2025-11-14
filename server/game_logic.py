@@ -5,7 +5,8 @@ import database_manager as db_manager
 import asyncio 
 
 ACTIVE_ROOMS = {}
-QUICK_JOIN_WAITING_PLAYER = None 
+# Dictionary để lưu hàng đợi cho từng game mode
+QUICK_JOIN_WAITING_PLAYERS = {}  # {game_mode: websocket} 
 
 # --- HELPER FUNCTION ---
 def _is_websocket_connected(ws):
@@ -39,6 +40,7 @@ def _get_clean_room_data(room):
         "turn": room.get("turn"),
         "settings": room.get("settings"),
         "score": room.get("score"),
+        "game_mode": room.get("game_mode", 5),  # Thêm game mode
         "timer_task": None # Không bao giờ gửi task
     }
     
@@ -87,9 +89,10 @@ async def handle_create_room(websocket, payload):
         username = websocket.username
         password = payload.get("password", "") 
         settings = payload.get("settings", { "time_limit": 120 }) 
+        game_mode = payload.get("game_mode", 5)  # Mặc định 5 quân
         room_code = generate_room_code()
         
-        print(f"[TẠO PHÒNG] User {username} (ID: {user_id}) đã tạo phòng: {room_code}")
+        print(f"[TẠO PHÒNG] User {username} (ID: {user_id}) đã tạo phòng: {room_code}, Game mode: {game_mode}")
         
         ACTIVE_ROOMS[room_code] = {
             "room_id": room_code,
@@ -100,8 +103,7 @@ async def handle_create_room(websocket, payload):
             },
             "player2": None, "board": None, "turn": None,
             "settings": settings,
-            "timer_task": None,
-            "consecutive_timeouts": 0  # Đếm số lượt timeout liên tiếp
+            "timer_task": None
         }
         
         websocket.room_code = room_code 
@@ -131,8 +133,10 @@ async def handle_join_room(websocket, payload):
         server_username = websocket.username
         room_code = payload.get("room_id")  # Don't use default empty string
         password = payload.get("password", "")
+        client_game_mode = payload.get("game_mode", 5)  # Mặc định 5 quân
         
         print(f"[DEBUG] Nhận yêu cầu vào phòng. Payload: {payload}")
+        print(f"[DEBUG] Client game mode: {client_game_mode}")
         
         if not room_code:  # Kiểm tra riêng trường hợp room_code trống
             await websocket.send(json.dumps({"status": "ERROR", "message": "Vui lòng nhập mã phòng."}))
@@ -171,7 +175,17 @@ async def handle_join_room(websocket, payload):
                 "message": "Sai mật khẩu phòng"
             }))
             return
-        print(f"[VÀO PHÒNG] User {server_username} (ID: {server_user_id}) đã vào phòng: {room_code}")
+            
+        # Kiểm tra game mode có khớp không (bỏ qua nếu client_game_mode = "ANY")
+        room_game_mode = room.get("game_mode", 5)
+        if client_game_mode != "ANY" and client_game_mode != room_game_mode:
+            await websocket.send(json.dumps({
+                "status": "ERROR", 
+                "message": f"Chế độ game không khớp. Phòng: {room_game_mode} quân, Bạn chọn: {client_game_mode} quân"
+            }))
+            return
+            
+        print(f"[VÀO PHÒNG] User {server_username} (ID: {server_user_id}) đã vào phòng: {room_code}, Game mode: {room_game_mode}")
         room["player2"] = {
             "websocket": websocket, "user_id": server_user_id,
             "username": server_username, "is_ready": False 
@@ -226,23 +240,32 @@ async def handle_join_room(websocket, payload):
         await websocket.send(json.dumps({"status": "ERROR", "message": "Lỗi khi vào phòng."}))
 
 # --- Chức năng 3: TÌM PHÒNG ---
-async def handle_find_room(websocket):
+async def handle_find_room(websocket, payload):
     """
-    Gửi cho client danh sách các phòng đang chờ.
+    Gửi cho client danh sách các phòng đang chờ, lọc theo game_mode nếu có.
     """
     try:
+        # Lấy game_mode từ payload để lọc phòng
+        client_game_mode = payload.get("game_mode") if payload else None
+        
         waiting_rooms = []
         for code, room in ACTIVE_ROOMS.items():
             if room["player2"] is None and room["board"] is None:
-                # Clean room data cho danh sách
-                waiting_rooms.append({
-                    "room_id": code,
-                    "host_name": room["player1"]["username"],
-                    "has_password": bool(room["password"]),
-                    "settings": room["settings"],
-                    "created_time": room.get("created_time", "")  # Thêm thời gian tạo phòng nếu có
-                })
+                room_game_mode = room.get("game_mode", 5)
+                
+                # Chỉ thêm phòng nếu game_mode khớp hoặc không có yêu cầu lọc
+                if client_game_mode is None or room_game_mode == client_game_mode:
+                    # Clean room data cho danh sách
+                    waiting_rooms.append({
+                        "room_id": code,
+                        "host_name": room["player1"]["username"],
+                        "has_password": bool(room["password"]),
+                        "settings": room["settings"],
+                        "game_mode": room_game_mode,  # Thêm game_mode để client hiển thị
+                        "created_time": room.get("created_time", "")
+                    })
         
+        print(f"[FIND_ROOM] Client game_mode: {client_game_mode}, Found {len(waiting_rooms)} rooms")
         await websocket.send(json.dumps({
             "status": "ROOM_LIST",
             "rooms": waiting_rooms
@@ -252,19 +275,30 @@ async def handle_find_room(websocket):
         await websocket.send(json.dumps({"status": "ERROR", "message": "Lỗi khi tải danh sách phòng."}))
 
 # --- Chức năng 4: VÀO NHANH ---
-async def handle_quick_join(websocket):
+async def handle_quick_join(websocket, payload):
     """
     Tự động tìm phòng chờ hoặc tạo phòng mới.
     """
-    global QUICK_JOIN_WAITING_PLAYER
+    global QUICK_JOIN_WAITING_PLAYERS
     try:
         user_id = websocket.user_id
         username = websocket.username
+        client_game_mode = payload.get("game_mode", 5) if payload else 5
+        
+        print(f"[QUICK JOIN] {username} muốn chơi chế độ {client_game_mode}")
 
-        # [SỬA LỖI] Cấm tự chơi
-        if QUICK_JOIN_WAITING_PLAYER and QUICK_JOIN_WAITING_PLAYER.user_id == user_id:
-            await websocket.send(json.dumps({"status": "ERROR", "message": "Bạn đã đang trong hàng đợi."}))
-            return
+        # [SỬA LỖI] Cấm tự chơi - kiểm tra trong hàng đợi
+        if client_game_mode != "ANY":
+            waiting_player = QUICK_JOIN_WAITING_PLAYERS.get(client_game_mode)
+            if waiting_player and waiting_player.user_id == user_id:
+                await websocket.send(json.dumps({"status": "ERROR", "message": "Bạn đã đang trong hàng đợi."})) 
+                return
+        else:
+            # Với mode "ANY", kiểm tra tất cả các hàng đợi
+            for mode_players in QUICK_JOIN_WAITING_PLAYERS.values():
+                if mode_players and mode_players.user_id == user_id:
+                    await websocket.send(json.dumps({"status": "ERROR", "message": "Bạn đã đang trong hàng đợi."})) 
+                    return
 
         # [LOGIC MỚI] 1. Quét các phòng "Tạo phòng" (ACTIVE_ROOMS) đang chờ
         found_room = None
@@ -274,8 +308,12 @@ async def handle_quick_join(websocket):
                 room["board"] is None and 
                 room["player1"]["user_id"] != user_id):
                 
-                found_room = room
-                break
+                # Nếu client_game_mode = "ANY", ghép với bất kỳ phòng nào
+                # Nếu không, chỉ ghép với phòng cùng game mode
+                if (client_game_mode == "ANY" or 
+                    room.get("game_mode", 5) == client_game_mode):
+                    found_room = room
+                    break
 
         if found_room:
             # 2. NẾU TÌM THẤY PHÒNG -> Tham gia phòng đó
@@ -306,49 +344,72 @@ async def handle_quick_join(websocket):
             # [BỎ AUTO START] Không tự động bắt đầu game, cần cả 2 người sẵn sàng
             return
 
-        # 3. NẾU KHÔNG TÌM THẤY PHÒNG -> Dùng logic hàng đợi (queue) cũ
-        print(f"[VÀO NHANH] Không tìm thấy phòng trống. User {username} vào hàng đợi...")
+        # 3. NẾU KHÔNG TÌM THẤY PHÒNG -> Dùng logic hàng đợi (queue) theo game_mode
+        print(f"[VÀO NHANH] Không tìm thấy phòng trống cho {client_game_mode}. User {username} vào hàng đợi...")
 
-        if QUICK_JOIN_WAITING_PLAYER:
-            player1_ws = QUICK_JOIN_WAITING_PLAYER
-            QUICK_JOIN_WAITING_PLAYER = None 
+        # Với mode "ANY", tìm bất kỳ người chờ nào
+        matched_player = None
+        matched_mode = None
+        
+        if client_game_mode == "ANY":
+            # Tìm bất kỳ người chờ nào trong các mode
+            for mode, waiting_player in QUICK_JOIN_WAITING_PLAYERS.items():
+                if waiting_player and mode != "ANY":
+                    matched_player = waiting_player
+                    matched_mode = mode
+                    break
+        else:
+            # Tìm người chờ cùng mode hoặc mode "ANY" 
+            if client_game_mode in QUICK_JOIN_WAITING_PLAYERS and QUICK_JOIN_WAITING_PLAYERS[client_game_mode]:
+                matched_player = QUICK_JOIN_WAITING_PLAYERS[client_game_mode]
+                matched_mode = client_game_mode
+            elif "ANY" in QUICK_JOIN_WAITING_PLAYERS and QUICK_JOIN_WAITING_PLAYERS["ANY"]:
+                matched_player = QUICK_JOIN_WAITING_PLAYERS["ANY"]
+                matched_mode = client_game_mode  # Dùng mode của người join sau
+
+        if matched_player:
+            del QUICK_JOIN_WAITING_PLAYERS[matched_mode if matched_mode != "ANY" else "ANY"]  # Xóa khỏi hàng đợi
             
             room_code = generate_room_code()
-            print(f"[VÀO NHANH] Ghép 2 người chờ {player1_ws.username} và {websocket.username} vào phòng {room_code}")
+            final_game_mode = matched_mode if matched_mode != "ANY" else client_game_mode
+            print(f"[VÀO NHANH] Ghép 2 người chờ {matched_player.username} và {websocket.username} vào phòng {room_code} (chế độ {final_game_mode})")
             
             room = {
                 "room_id": room_code, "password": "",
                 "player1": {
-                    "websocket": player1_ws, "user_id": player1_ws.user_id,
-                    "username": player1_ws.username, "is_ready": False
+                    "websocket": matched_player, "user_id": matched_player.user_id,
+                    "username": matched_player.username, "is_ready": False
                 },
                 "player2": {
                     "websocket": websocket, "user_id": websocket.user_id,
                     "username": websocket.username, "is_ready": False
                 },
                 "board": None, "turn": None, "settings": {"time_limit": 120},
-                "timer_task": None,
-                "consecutive_timeouts": 0
+                "timer_task": None
             }
             ACTIVE_ROOMS[room_code] = room
             
-            player1_ws.room_code = room_code
+            matched_player.room_code = room_code
             websocket.room_code = room_code
             
             # [SỬA LỖI] Gửi data sạch
             clean_room_data = _get_clean_room_data(room) 
             # Gửi JOIN_SUCCESS cho cả 2 người kèm room_data
-            await _safe_send(player1_ws, {"status": "JOIN_SUCCESS", "message": "Đã tìm thấy đối thủ!", "room_data": clean_room_data})
+            await _safe_send(matched_player, {"status": "JOIN_SUCCESS", "message": "Đã tìm thấy đối thủ!", "room_data": clean_room_data})
             await _safe_send(websocket, {"status": "JOIN_SUCCESS", "message": "Đã tìm thấy đối thủ!", "room_data": clean_room_data})
             
             # [BỎ AUTO START] Không tự động bắt đầu game, cần cả 2 người sẵn sàng
         
         else:
-            QUICK_JOIN_WAITING_PLAYER = websocket
+            # Thêm vào hàng đợi theo game_mode
+            QUICK_JOIN_WAITING_PLAYERS[client_game_mode] = websocket
+            
+            wait_message = "Đang tìm đối thủ (mọi chế độ)..." if client_game_mode == "ANY" else f"Đang tìm đối thủ cho chế độ {client_game_mode} quân..."
             await websocket.send(json.dumps({
                 "status": "WAITING_FOR_MATCH",
-                "message": "Đang tìm đối thủ..."
+                "message": wait_message
             }))
+            print(f"[QUICK JOIN] {username} đã vào hàng đợi chế độ {client_game_mode}")
     
     except Exception as e:
         print(f"[LỖI VÀO NHANH] {e}")
@@ -359,13 +420,19 @@ async def handle_cancel_quick_join(websocket):
     """
     Xử lý khi client chủ động hủy tìm trận 'Vào nhanh'.
     """
-    global QUICK_JOIN_WAITING_PLAYER
+    global QUICK_JOIN_WAITING_PLAYERS
     try:
-        if QUICK_JOIN_WAITING_PLAYER == websocket:
-            QUICK_JOIN_WAITING_PLAYER = None
-            if hasattr(websocket, 'username'):
-                print(f"[DỌN DẸP] User {websocket.username} đã hủy chờ 'Vào nhanh'.")
-            
+        # Tìm và xóa khỏi hàng đợi của game_mode tương ứng
+        removed = False
+        for game_mode, waiting_player in list(QUICK_JOIN_WAITING_PLAYERS.items()):
+            if waiting_player == websocket:
+                del QUICK_JOIN_WAITING_PLAYERS[game_mode]
+                removed = True
+                if hasattr(websocket, 'username'):
+                    print(f"[DỌN DẸP] User {websocket.username} đã hủy chờ 'Vào nhanh' chế độ {game_mode} quân.")
+                break
+        
+        if removed:
             await websocket.send(json.dumps({
                 "status": "CANCEL_QUICK_JOIN_SUCCESS"
             }))
@@ -386,11 +453,15 @@ async def handle_disconnect(websocket, reason="DISCONNECT"):
     Xử lý dọn dẹp khi một client ngắt kết nối.
     """
     try:
-        global QUICK_JOIN_WAITING_PLAYER
-        if QUICK_JOIN_WAITING_PLAYER == websocket:
-            QUICK_JOIN_WAITING_PLAYER = None
-            if hasattr(websocket, 'username'):
-                print(f"[DỌN DẸP] User {websocket.username} đã hủy chờ 'Vào nhanh'.")
+        global QUICK_JOIN_WAITING_PLAYERS
+        
+        # Dọn dẹp hàng đợi quick join theo game mode
+        for game_mode, waiting_player in list(QUICK_JOIN_WAITING_PLAYERS.items()):
+            if waiting_player == websocket:
+                del QUICK_JOIN_WAITING_PLAYERS[game_mode]
+                if hasattr(websocket, 'username'):
+                    print(f"[DỌN DẸP] User {websocket.username} đã hủy chờ 'Vào nhanh' chế độ {game_mode} quân.")
+                break
 
         if not hasattr(websocket, 'room_code'):
             return 
@@ -556,6 +627,28 @@ async def handle_ready(websocket, payload=None):
         print(f"[LỖI READY] {e}")
         await websocket.send(json.dumps({"status": "ERROR", "message": "Lỗi khi xử lý sẵn sàng."}))
 
+# --- Hàm nội bộ: LẤY KÍCH THƯỚC BOARD ---
+def _get_board_size(game_mode):
+    """
+    Trả về kích thước board theo game mode
+    3 quân = 3x3, 4 quân = 6x6, 5 quân = 9x9, 6 quân = 12x12
+    """
+    board_sizes = {
+        3: 3,
+        4: 6, 
+        5: 9,
+        6: 12
+    }
+    return board_sizes.get(game_mode, 9)  # Mặc định 9x9
+
+def _is_board_full(board):
+    """Kiểm tra xem bàn cờ đã đầy chưa (không còn ô trống)"""
+    for row in board:
+        for cell in row:
+            if cell == 0:  # Còn ô trống
+                return False
+    return True  # Bàn cờ đã đầy
+
 # --- Hàm nội bộ: BẮT ĐẦU GAME ---
 async def _start_game(room):
     """
@@ -563,8 +656,11 @@ async def _start_game(room):
     """
     print(f"[_START_GAME] ===== BẮT ĐẦU TẠO GAME =====")
     
-    board_size = 20
+    game_mode = room.get("game_mode", 5)
+    board_size = _get_board_size(game_mode)
     room["board"] = [[0 for _ in range(board_size)] for _ in range(board_size)]
+    
+    print(f"[_START_GAME] Tạo board {board_size}x{board_size} cho game mode {game_mode} quân")
     
     player1 = room["player1"]
     player2 = room["player2"]
@@ -599,13 +695,13 @@ async def _start_game(room):
     print(f"[_START_GAME] Gửi GAME_START cho playerX ({playerX['username']})")
     await playerX["websocket"].send(json.dumps({
         "status": "GAME_START", "role": "X", "turn": "YOU", 
-        "board": clean_board, "score": clean_score
+        "board": clean_board, "score": clean_score, "game_mode": room.get("game_mode", 5)
     }))
     
     print(f"[_START_GAME] Gửi GAME_START cho playerO ({playerO['username']})")
     await playerO["websocket"].send(json.dumps({
         "status": "GAME_START", "role": "O", "turn": "OPPONENT", 
-        "board": clean_board, "score": clean_score
+        "board": clean_board, "score": clean_score, "game_mode": room.get("game_mode", 5)
     }))
     
     print(f"[_START_GAME] ===== ĐÃ GỬI GAME_START CHO CẢ 2 PLAYERS =====")
@@ -646,19 +742,9 @@ async def _start_turn_timer(room, player_id_on_turn, time_limit):
         if room.get("turn") == player_id_on_turn:
             print(f"[TIMEOUT] User ID {player_id_on_turn} (phòng {room.get('room_id')}) đã hết giờ!")
             
-            # Tăng số lượt timeout liên tiếp
-            room["consecutive_timeouts"] = room.get("consecutive_timeouts", 0) + 1
-            
-            # Nếu đã 2 lượt timeout liên tiếp -> hòa
-            if room["consecutive_timeouts"] >= 2:
-                await _handle_game_over(room, None, None, reason="DRAW")
-                return
-            
-            # Tìm đối thủ để chuyển lượt
-            current_player_id = player_id_on_turn
-            opponent_id = None
-            
-            if not room.get("player1") or not room.get("player2"): return
+            loser_id = player_id_on_turn
+            winner_id = None
+            if not room.get("player1") or not room.get("player2"): return # Lỗi, không tìm thấy người chơi
             
             if room["player1"]["user_id"] == current_player_id:
                 opponent_id = room["player2"]["user_id"]
@@ -778,9 +864,16 @@ async def handle_move(websocket, payload):
                 "player_id": user_id  # Gửi ID của người đánh để client cập nhật board
             })
 
-        if _check_win(room["board"], row, col, user_id):
-            print(f"[GAME KẾT THÚC] User {websocket.username} (ID: {user_id}) thắng phòng {room_code}.")
+        game_mode = room.get("game_mode", 5)  # Lấy game mode từ room
+        if _check_win(room["board"], row, col, user_id, game_mode):
+            print(f"[GAME KẾT THÚC] User {websocket.username} (ID: {user_id}) thắng phòng {room_code} với {game_mode} quân.")
             await _handle_game_over(room, winner_id=user_id, loser_id=opponent_id, reason="WIN")
+            return 
+
+        # Kiểm tra hòa (bàn cờ đầy nhưng không có ai thắng)
+        if _is_board_full(room["board"]):
+            print(f"[GAME HÒA] Phòng {room_code} hòa do bàn cờ đã đầy.")
+            await _handle_game_over(room, winner_id=None, loser_id=None, reason="DRAW_BOARD_FULL")
             return 
 
         room["turn"] = opponent_id
@@ -798,22 +891,23 @@ async def handle_move(websocket, payload):
         await websocket.send(json.dumps({"status": "ERROR", "message": "Lỗi khi xử lý nước đi."}))
 
 # --- Hàm nội bộ: KIỂM TRA THẮNG ---
-def _check_win(board, r, c, player_id):
+def _check_win(board, r, c, player_id, win_count=5):
     """
     Kiểm tra xem nước đi tại (r, c) của player_id có tạo ra chiến thắng không.
+    win_count: số quân thẳng hàng cần để thắng (3, 5, 6)
     """
     board_size = len(board)
     directions = [(0, 1), (1, 0), (1, 1), (1, -1)]
 
     for dr, dc in directions:
         count = 0
-        for i in range(-4, 5):
+        for i in range(-(win_count-1), win_count):
             nr, nc = r + i * dr, c + i * dc
             
             if 0 <= nr < board_size and 0 <= nc < board_size:
                 if board[nr][nc] == player_id:
                     count += 1
-                    if count >= 5:
+                    if count >= win_count:
                         return True 
                 else:
                     count = 0 
@@ -843,9 +937,6 @@ async def _handle_game_over(room, winner_id, loser_id, reason="WIN"):
         
         if winner_id and loser_id: # Chỉ update DB nếu có đủ 2 người
             db_manager.update_game_stats(winner_id, loser_id)
-    elif reason == "DRAW":
-        # Trường hợp hòa - không cập nhật điểm
-        pass
     
     winner_ws = None
     loser_ws = None
@@ -862,23 +953,7 @@ async def _handle_game_over(room, winner_id, loser_id, reason="WIN"):
         elif room["player2"]["user_id"] == loser_id:
             loser_ws = room["player2"]["websocket"]
 
-    if reason == "DRAW":
-        # Trường hợp hòa - gửi thông báo cho cả hai
-        if room.get("player1") and room.get("player1", {}).get("websocket"):
-            await _safe_send(room["player1"]["websocket"], {
-                "status": "GAME_OVER",
-                "result": "DRAW",
-                "score": room["score"]
-            })
-        
-        if room.get("player2") and room.get("player2", {}).get("websocket"):
-            await _safe_send(room["player2"]["websocket"], {
-                "status": "GAME_OVER", 
-                "result": "DRAW",
-                "score": room["score"]
-            })
-    
-    elif winner_ws:
+    if winner_ws:
         result_type = "WIN"
         if reason == "TIMEOUT": result_type = "TIMEOUT_WIN"
         elif reason == "OPPONENT_LEFT": result_type = "OPPONENT_LEFT_WIN"
@@ -1052,103 +1127,3 @@ async def handle_update_settings(websocket, payload):
     except Exception as e:
         print(f"[LỖI SETTINGS] {e}")
         await websocket.send(json.dumps({"status": "ERROR", "message": "Lỗi khi cập nhật cài đặt."}))
-
-
-# --- Chức năng: ĐẦUHÀNG ---
-async def handle_surrender(websocket, payload=None):
-    """
-    Xử lý khi người chơi đầu hàng.
-    Người đầu hàng thua, đối thủ thắng.
-    """
-    try:
-        if not hasattr(websocket, 'room_code'):
-            await websocket.send(json.dumps({"status": "ERROR", "message": "Bạn không ở trong phòng nào."}))
-            return
-            
-        room_code = websocket.room_code
-        if room_code not in ACTIVE_ROOMS:
-            await websocket.send(json.dumps({"status": "ERROR", "message": "Phòng không tồn tại."}))
-            return
-            
-        room = ACTIVE_ROOMS[room_code]
-        
-        # Kiểm tra game đang diễn ra
-        if not room.get("board"):
-            await websocket.send(json.dumps({"status": "ERROR", "message": "Game chưa bắt đầu."}))
-            return
-            
-        user_id = websocket.user_id
-        username = websocket.username
-        
-        # Tìm người chơi và đối thủ
-        surrendering_player = None
-        opponent_ws = None
-        opponent_username = None
-        
-        if room["player1"] and room["player1"]["user_id"] == user_id:
-            surrendering_player = "player1"
-            if room["player2"]:
-                opponent_ws = room["player2"]["websocket"]
-                opponent_username = room["player2"]["username"]
-        elif room["player2"] and room["player2"]["user_id"] == user_id:
-            surrendering_player = "player2"
-            opponent_ws = room["player1"]["websocket"]
-            opponent_username = room["player1"]["username"]
-            
-        if not surrendering_player:
-            await websocket.send(json.dumps({"status": "ERROR", "message": "Không tìm thấy thông tin người chơi."}))
-            return
-            
-        print(f"[ĐẦUHÀNG] User {username} (phòng {room_code}) đã đầu hàng")
-        
-        # Kết thúc game - người đầu hàng thua
-        await _safe_send(websocket, {
-            "status": "GAME_OVER",
-            "result": "LOSE",
-            "message": f"Bạn đã đầu hàng. {opponent_username} thắng!",
-            "reason": "SURRENDER"
-        })
-        
-        if opponent_ws:
-            await _safe_send(opponent_ws, {
-                "status": "GAME_OVER", 
-                "result": "WIN",
-                "message": f"{username} đã đầu hàng. Bạn thắng!",
-                "reason": "OPPONENT_SURRENDER"
-            })
-        
-        # Dọn dẹp phòng và reset trạng thái
-        await _cleanup_room_after_game(room, room_code)
-        
-    except Exception as e:
-        print(f"[LỖI ĐẦUHÀNG] {e}")
-        await websocket.send(json.dumps({"status": "ERROR", "message": "Lỗi khi xử lý đầu hàng."}))
-
-
-# --- Hàm hỗ trợ: Dọn dẹp phòng sau game ---
-async def _cleanup_room_after_game(room, room_code):
-    """
-    Dọn dẹp phòng sau khi game kết thúc (thắng/thua/đầu hàng).
-    Reset board, timer, trạng thái sẵn sàng.
-    """
-    try:
-        # Dừng timer nếu có
-        if room.get("timer_task"):
-            room["timer_task"].cancel()
-            room["timer_task"] = None
-            
-        # Reset board và game state
-        room["board"] = None
-        room["current_turn"] = None
-        room["game_start_time"] = None
-        
-        # Reset trạng thái sẵn sàng
-        if room["player1"]:
-            room["player1"]["is_ready"] = False
-        if room["player2"]:
-            room["player2"]["is_ready"] = False
-            
-        print(f"[CLEANUP] Đã dọn dẹp phòng {room_code} sau game")
-        
-    except Exception as e:
-        print(f"[LỖI CLEANUP] {e}")

@@ -51,10 +51,10 @@ async def handle_message(websocket, message):
             await game_logic.handle_cancel_quick_join(websocket)           
             
         elif action == "FIND_ROOM":
-            await game_logic.handle_find_room(websocket)
+            await game_logic.handle_find_room(websocket, payload)
             
         elif action == "QUICK_JOIN":
-            await game_logic.handle_quick_join(websocket)
+            await game_logic.handle_quick_join(websocket, payload)
 
         # --- [MỚI] Thêm các chức năng Phòng chờ & Game (Sẽ làm sau) ---
         elif action == "UPDATE_SETTINGS":
@@ -72,9 +72,6 @@ async def handle_message(websocket, message):
              await game_logic.handle_chat(websocket, payload)
         elif action == "REMATCH":
              await game_logic.handle_rematch(websocket, payload)
-        elif action == "TURN_TIMEOUT":
-             # Client báo timeout, server sẽ xử lý qua timer task
-             print(f"[DEBUG] Client báo TURN_TIMEOUT từ {getattr(websocket, 'user_id', 'unknown')}")
 
         
         # --- Hết ---
@@ -174,9 +171,6 @@ async def handle_register(websocket, payload):
     except KeyError:
         print("[LỖI ĐĂNG KÝ] Tin nhắn REGISTER thiếu username hoặc password.")
         await websocket.send(json.dumps({"status": "ERROR", "message": "Yêu cầu đăng ký thiếu thông tin."}))
-    except Exception as e:
-        print(f"[LỖI ĐĂNG KÝ] {e}")
-        await websocket.send(json.dumps({"status": "ERROR", "message": "Lỗi đăng ký."}))
 
 # ----- Hàm Chính của Server -----
 

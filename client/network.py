@@ -88,3 +88,15 @@ class Network:
         except queue.Empty:
             # Hàng đợi rỗng, không có tin nhắn mới
             return None
+    
+    def disconnect(self):
+        """
+        Đóng kết nối với server.
+        """
+        try:
+            if self.ws:
+                self.ws.close()
+                self.is_connected = False
+                print("[Network] Đã đóng kết nối.")
+        except Exception as e:
+            print(f"[Network Disconnect Error] {e}")
