@@ -223,7 +223,7 @@ leaderboard_button = Button(
 )
 
 main_menu_logout_button = Button(
-    x=50, y=SCREEN_HEIGHT - 80, width=120, height=55,
+    x=50, y=SCREEN_HEIGHT - 80, width=150, height=55,
     text="Đăng xuất", font=font_medium,
     color_normal=theme.DANGER, color_hover=(235, 80, 80)
 )
