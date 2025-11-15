@@ -699,19 +699,21 @@ async def _start_game(room):
     print(f"[_START_GAME] Gửi GAME_START cho playerX ({playerX['username']})")
     await playerX["websocket"].send(json.dumps({
         "status": "GAME_START", "role": "X", "turn": "YOU", 
-        "board": clean_board, "score": clean_score, "game_mode": room.get("game_mode", 5)
+        "board": clean_board, "score": clean_score, "game_mode": room.get("game_mode", 5),
+        "settings": room.get("settings", {})
     }))
     
     print(f"[_START_GAME] Gửi GAME_START cho playerO ({playerO['username']})")
     await playerO["websocket"].send(json.dumps({
         "status": "GAME_START", "role": "O", "turn": "OPPONENT", 
-        "board": clean_board, "score": clean_score, "game_mode": room.get("game_mode", 5)
+        "board": clean_board, "score": clean_score, "game_mode": room.get("game_mode", 5),
+        "settings": room.get("settings", {})
     }))
     
     print(f"[_START_GAME] ===== ĐÃ GỬI GAME_START CHO CẢ 2 PLAYERS =====")
     
-    # Sử dụng thời gian giới hạn 30 giây cho mỗi lượt (giống client)
-    time_limit = 30
+    # Sử dụng thời gian giới hạn theo settings của phòng (mặc định 30s nếu không có)
+    time_limit = room.get("settings", {}).get("time_limit", 30)
     
     if room.get("timer_task"):
         room["timer_task"].cancel()
@@ -744,69 +746,23 @@ async def _start_turn_timer(room, player_id_on_turn, time_limit):
             return
 
         if room.get("turn") == player_id_on_turn:
-            print(f"[TIMEOUT] User ID {player_id_on_turn} (phòng {room.get('room_id')}) đã hết giờ!")
+            print(f"[TIMEOUT] User ID {player_id_on_turn} (phòng {room.get('room_id')}) đã hết giờ! Người này thua trận.")
             
-            # Tăng số lượt timeout liên tiếp
-            room["consecutive_timeouts"] = room.get("consecutive_timeouts", 0) + 1
-            
-            # Nếu đã 2 lượt timeout liên tiếp -> hòa do hết thời gian
-            if room["consecutive_timeouts"] >= 2:
-                await _handle_game_over(room, None, None, reason="DRAW_TIMEOUT")
-                return
-            
-            # Tìm đối thủ để chuyển lượt
-            current_player_id = player_id_on_turn
+            # Tìm đối thủ (người thắng)
+            current_player_id = player_id_on_turn  # Người thua
             opponent_id = None
             
             if not room.get("player1") or not room.get("player2"): return
             
             if room["player1"]["user_id"] == current_player_id:
-                opponent_id = room["player2"]["user_id"]
-                opponent_ws = room["player2"]["websocket"]
+                opponent_id = room["player2"]["user_id"]  # Đối thủ thắng
             else:
-                opponent_id = room["player1"]["user_id"]  
-                opponent_ws = room["player1"]["websocket"]
+                opponent_id = room["player1"]["user_id"]  # Đối thủ thắng
             
-            print(f"[DEBUG] Timeout player: {current_player_id}, Opponent: {opponent_id}")
+            print(f"[TIMEOUT] Player thua (timeout): {current_player_id}, Player thắng: {opponent_id}")
             
-            # Chuyển lượt cho đối thủ
-            room["turn"] = opponent_id
-            print(f"[DEBUG] Đã chuyển turn thành: {room['turn']}")
-            
-            # QUAN TRỌNG: Cancel timer task hiện tại trước khi tạo mới
-            if room.get("timer_task"):
-                room["timer_task"].cancel()
-                room["timer_task"] = None
-            
-            # Gửi thông báo timeout cho cả hai
-            p1_is_opponent = room["player1"]["user_id"] == opponent_id
-            p2_is_opponent = room["player2"]["user_id"] == opponent_id
-            
-            print(f"[DEBUG] Gửi TURN_TIMEOUT cho player1: {room['player1']['user_id']}, is_opponent: {p1_is_opponent}")
-            await _safe_send(room["player1"]["websocket"], {
-                "status": "TURN_TIMEOUT",
-                "message": f"Player {current_player_id} đã hết thời gian!",
-                "turn": "YOU" if p1_is_opponent else "OPPONENT",
-                "my_turn": p1_is_opponent,
-                "board": room["board"]
-            })
-            
-            print(f"[DEBUG] Gửi TURN_TIMEOUT cho player2: {room['player2']['user_id']}, is_opponent: {p2_is_opponent}")
-            await _safe_send(room["player2"]["websocket"], {
-                "status": "TURN_TIMEOUT", 
-                "message": f"Player {current_player_id} đã hết thời gian!",
-                "turn": "YOU" if p2_is_opponent else "OPPONENT",
-                "my_turn": p2_is_opponent,
-                "board": room["board"]
-            })
-            
-            # Khởi động timer cho lượt tiếp theo
-            if opponent_id:
-                print(f"[DEBUG] Tạo timer mới cho opponent: {opponent_id}")
-                timer_task = asyncio.create_task(
-                    _start_turn_timer(room, opponent_id, 30)
-                )
-                room["timer_task"] = timer_task
+            # Kết thúc game, người timeout thua
+            await _handle_game_over(room, winner_id=opponent_id, loser_id=current_player_id, reason="TIMEOUT")
 
     except asyncio.CancelledError:
         print(f"[TIMER] Đã hủy timer cho User ID {player_id_on_turn} (đã đi).")
@@ -892,11 +848,11 @@ async def handle_move(websocket, payload):
 
         room["turn"] = opponent_id
         
-        if opponent_id: 
-            # Sử dụng 30 giây giống client
-            time_limit = 30
+        if opponent_id:
+            # Sử dụng time_limit theo settings phòng (mặc định 30 giây)
+            next_time_limit = room.get("settings", {}).get("time_limit", 30)
             timer_task = asyncio.create_task(
-                _start_turn_timer(room, opponent_id, time_limit)
+                _start_turn_timer(room, opponent_id, next_time_limit)
             )
             room["timer_task"] = timer_task
 

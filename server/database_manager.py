@@ -32,6 +32,7 @@ def create_tables():
                 username    VARCHAR(50) NOT NULL UNIQUE,
                 password_hash VARCHAR(255) NOT NULL,
                 wins        INT DEFAULT 0,
+                draws       INT DEFAULT 0,
                 losses      INT DEFAULT 0,
                 created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -63,6 +64,11 @@ def create_tables():
         
         try:
             cursor.execute("ALTER TABLE match_history ADD COLUMN result_type VARCHAR(20) DEFAULT 'normal'")
+        except mysql.connector.Error:
+            pass  # Cột đã tồn tại
+        # Thêm cột draws cho bảng users nếu chưa có (dùng để tính tổng trận)
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN draws INT DEFAULT 0")
         except mysql.connector.Error:
             pass  # Cột đã tồn tại
         
@@ -356,8 +362,8 @@ def get_leaderboard(limit=50):
         cursor = conn.cursor()
         
         cursor.execute("""
-            SELECT username, wins, 
-                   (wins + losses + draws) as total_games
+            SELECT username, IFNULL(wins,0) as wins, 
+                   (IFNULL(wins,0) + IFNULL(losses,0) + IFNULL(draws,0)) as total_games
             FROM users 
             ORDER BY wins DESC, username ASC
             LIMIT %s
@@ -379,7 +385,7 @@ def get_leaderboard(limit=50):
         print(f"Lỗi database khi lấy bảng xếp hạng: {e}")
         return []
     finally:
-        if conn.is_connected():
+        if 'conn' in locals() and conn and conn.is_connected():
             cursor.close()
             conn.close()
 
@@ -399,7 +405,7 @@ def get_user_rank(user_id):
         
         # Lấy thông tin user hiện tại
         cursor.execute("""
-            SELECT username, wins, losses, draws
+            SELECT username, IFNULL(wins,0) as wins, IFNULL(losses,0) as losses, IFNULL(draws,0) as draws
             FROM users 
             WHERE user_id = %s
         """, (user_id,))
@@ -433,7 +439,7 @@ def get_user_rank(user_id):
         print(f"Lỗi database khi lấy rank user: {e}")
         return None
     finally:
-        if conn.is_connected():
+        if 'conn' in locals() and conn and conn.is_connected():
             cursor.close()
             conn.close()
 

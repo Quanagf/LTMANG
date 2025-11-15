@@ -228,6 +228,25 @@ main_menu_logout_button = Button(
     color_normal=theme.DANGER, color_hover=(235, 80, 80)
 )
 
+# Arrange main menu buttons into two columns (3 rows each)
+try:
+    main_menu_buttons = [quick_play_button, enter_room_code_button, game_modes_button, main_menu_find_room_button, match_history_button, leaderboard_button]
+    cols = 2
+    rows = 3
+    gap_y = 18
+    gap_x = 24
+    left_x = SCREEN_WIDTH // 2 - main_menu_btn_width - (gap_x // 2)
+    right_x = SCREEN_WIDTH // 2 + (gap_x // 2)
+    for idx, btn in enumerate(main_menu_buttons):
+        col = idx % cols
+        row = idx // cols
+        x = left_x if col == 0 else right_x
+        y = main_menu_start_y + row * (main_menu_btn_height + gap_y)
+        btn.rect.topleft = (int(x), int(y))
+except Exception:
+    # Fallback: ignore layout change if something unexpected occurs
+    pass
+
 # === Màn hình MATCH_HISTORY ===
 history_back_button = Button(
     x=50, y=50, width=120, height=50,
@@ -256,7 +275,7 @@ history_next_button = Button(
 
 # === Màn hình LEADERBOARD ===
 leaderboard_back_button = Button(
-    x=50, y=50, width=120, height=50,
+    x=20, y=SCREEN_HEIGHT - 80, width=120, height=55,
     text="Quay lại", font=font_medium,
     color_normal=theme.DANGER, color_hover=(235, 80, 80)
 )
@@ -297,12 +316,37 @@ create_room_password_input = InputBox(
     x=comp_x, y=200, width=comp_width, height=50, 
     font=font_medium, is_password=True
 )
-create_room_time_input = InputBox(
-    x=comp_x, y=300, width=comp_width, height=50, 
-    font=font_medium
-)
+# Thay InputBox chọn thời gian bằng một nút cycling giữa các lựa chọn (30s,60s,90s)
+create_room_time_options = [30, 60, 90, 120]
+create_room_time_index = 0
+# Một nút toggle để hiện các lựa chọn theo hàng
+create_room_time_toggle = Button(x=comp_x, y=300, width=comp_width, height=50,
+                                 text=f"Thời gian: {create_room_time_options[create_room_time_index]}s",
+                                 font=font_medium, color_normal=theme.ACCENT, color_hover=theme.ACCENT_HOVER)
+# Các nút lựa chọn theo hàng (ẩn mặc định)
+choice_btn_h = 50
+choice_spacing = 12
+choice_btn_w = (comp_width - 3 * choice_spacing) // 4
+choice_btns = []
+choice_y = create_room_time_toggle.rect.y + create_room_time_toggle.rect.height + 20
+for i, opt in enumerate(create_room_time_options):
+    x = int(comp_x + i * (choice_btn_w + choice_spacing))
+    # Use distinct colors for each time choice to make them visually different
+    colors = [theme.LIME_GREEN, theme.CYAN_BLUE, theme.GOLD_ORANGE, theme.MAGENTA_PURPLE]
+    hover_colors = [(50, 255, 120), (50, 220, 255), (255, 200, 50), (240, 100, 240)]
+    color = colors[i] if i < len(colors) else theme.ACCENT
+    hover = hover_colors[i] if i < len(hover_colors) else theme.ACCENT_HOVER
+    choice_btns.append(Button(x=x, y=choice_y, width=choice_btn_w, height=choice_btn_h,
+                              text=f"{opt}s", font=font_medium,
+                              color_normal=color, color_hover=hover))
+# Hiển thị hay ẩn các lựa chọn
+show_time_choices = False
+# Place the confirm button below the time choices to avoid overlap.
+# Add more vertical spacing so the confirm button does not touch the time-choice row
+# Increase vertical gap so the confirm button cannot overlap the time-choice buttons.
+confirm_y = int(choice_y + choice_btn_h + 100)
 create_room_confirm_button = Button(
-    x=comp_x, y=420, width=comp_width, height=60, 
+    x=comp_x, y=confirm_y, width=comp_width, height=60,
     text="Tạo phòng", font=font_medium,
     color_normal=theme.ACCENT, color_hover=theme.ACCENT_HOVER
 )
@@ -534,17 +578,24 @@ while running:
         elapsed_time = (current_time - turn_start_time) / 1000.0  # Chuyển sang giây
         
         if elapsed_time >= TURN_TIMEOUT:
-            # Hết thời gian, tự động chuyển lượt (không đánh nước nào)
+            # Hết thời gian, thua trận
             is_my_turn = False
             turn_start_time = None
-            feedback_msg = "Hết thời gian! Lượt đã chuyển cho đối thủ"
+            feedback_msg = "Hết thời gian! Bạn thua trận"
             feedback_color = (255, 100, 100)
             
-            # Gửi tin hiệu timeout lên server (nếu cần)
+            # Gửi tin hiệu timeout lên server
             network.send_message({
                 "action": "TURN_TIMEOUT",
                 "payload": {}
             })
+            
+            # Chuyển sang màn hình kết thúc game
+            game_state = "GAME_OVER_SCREEN"
+            game_result = "TIMEOUT_LOSE"
+            game_score = {}
+            game_end_reason = "TIMEOUT"
+            game_end_message = "Bạn thua do hết thời gian!"
     
     # 2. Xử lý Input (Sự kiện)
     mouse_pos = pygame.mouse.get_pos()
@@ -717,8 +768,10 @@ while running:
                 # Set actual_origin dựa trên nguồn gốc của lobby
                 actual_origin = lobby_origin if lobby_origin == "MAIN_MENU" else "LOBBY"
                 feedback_msg = ""
-                create_room_password_input.text = "" 
-                create_room_time_input.text = "120"
+                create_room_password_input.text = ""
+                create_room_time_index = 0
+                show_time_choices = False
+                create_room_time_toggle.text = f"Thời gian: {create_room_time_options[create_room_time_index]}s"
                 
             if find_room_button.is_clicked(event):
                 print("[GAME] Chuyển sang màn hình 'Tìm phòng'...")
@@ -736,7 +789,22 @@ while running:
         # --- [ĐÃ DI CHUYỂN] Xử lý Input: CREATE_ROOM_FORM ---
         elif game_state == "CREATE_ROOM_FORM":
             create_room_password_input.handle_event(event)
-            create_room_time_input.handle_event(event)
+            # Xử lý nút toggle để hiện/ẩn lựa chọn thời gian
+            mouse_pos = pygame.mouse.get_pos()
+            create_room_time_toggle.check_hover(mouse_pos)
+            if create_room_time_toggle.is_clicked(event):
+                show_time_choices = not show_time_choices
+
+            # Nếu đang hiển thị các lựa chọn, xử lý click từng nút trong hàng
+            if show_time_choices:
+                for idx, btn in enumerate(choice_btns):
+                    btn.check_hover(mouse_pos)
+                    if btn.is_clicked(event):
+                        create_room_time_index = idx
+                        create_room_time_toggle.text = f"Thời gian: {create_room_time_options[create_room_time_index]}s"
+                        show_time_choices = False
+                        feedback_msg = f"Đã chọn {create_room_time_options[create_room_time_index]} giây"
+                        feedback_color = (100, 255, 100)
 
             if back_button.is_clicked(event):
                 game_state = "LOBBY"
@@ -744,26 +812,23 @@ while running:
             
             if create_room_confirm_button.is_clicked(event):
                 password = create_room_password_input.text
-                time_limit_str = create_room_time_input.text
-                try:
-                    time_limit_int = int(time_limit_str) if time_limit_str else 120
-                    if time_limit_int < 30:
-                         feedback_msg = "Thời gian phải ít nhất 30 giây."
-                         feedback_color = (255, 50, 50)
-                    else:
-                        network.send_message({
-                            "action": "CREATE_ROOM", 
-                            "payload": {
-                                "password": password,
-                                "settings": {"time_limit": time_limit_int},
-                                "game_mode": game_mode
-                            }
-                        })
-                        feedback_msg = "Đang tạo phòng..."
-                        feedback_color = (255, 255, 255)
-                except ValueError:
-                    feedback_msg = "Thời gian (giây) phải là một con số."
+                # Lấy giá trị thời gian từ lựa chọn hiện tại
+                time_limit_int = create_room_time_options[create_room_time_index]
+
+                if time_limit_int < 30:
+                    feedback_msg = "Thời gian phải ít nhất 30 giây."
                     feedback_color = (255, 50, 50)
+                else:
+                    network.send_message({
+                        "action": "CREATE_ROOM",
+                        "payload": {
+                            "password": password,
+                            "settings": {"time_limit": time_limit_int},
+                            "game_mode": game_mode
+                        }
+                    })
+                    feedback_msg = "Đang tạo phòng..."
+                    feedback_color = (255, 255, 255)
 
         # --- Xử lý Input: FIND_ROOM ---
         elif game_state == "FIND_ROOM":
@@ -1000,21 +1065,27 @@ while running:
         # --- Xử lý Input: GAME_OVER_SCREEN ---
         elif game_state == "GAME_OVER_SCREEN":
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                # Check nếu click vào vùng button (sẽ xử lý ở render)
                 mouse_x, mouse_y = event.pos
                 
-                # Tính vị trí button (phải match với code render)
-                rematch_rect = pygame.Rect((SCREEN_WIDTH / 2) - 160, 370, 140, 50)
-                lobby_rect = pygame.Rect((SCREEN_WIDTH / 2) + 20, 370, 140, 50)
+                # Chỉ kiểm tra nút chơi lại nếu game_result không phải None hoặc TIMEOUT_LOSE
+                show_rematch = game_result is not None and game_result != "TIMEOUT_LOSE"
+                if show_rematch:
+                    rematch_rect = pygame.Rect((SCREEN_WIDTH / 2) - 160, 370, 140, 50)
+                    if rematch_rect.collidepoint(mouse_x, mouse_y):
+                        network.send_message({"action": "REMATCH", "payload": {}})
+                        feedback_msg = "Đã gửi lời mời chơi lại đến đối thủ..."
+                        feedback_color = (255, 255, 0)
+                        print(f"[REMATCH] Bên {game_result} đã gửi yêu cầu chơi lại")
+                        continue
                 
-                if rematch_rect.collidepoint(mouse_x, mouse_y):
-                    network.send_message({"action": "REMATCH", "payload": {}})
-                    feedback_msg = "Đã gửi lời mời chơi lại đến đối thủ..."
-                    feedback_color = (255, 255, 0)
-                    print("[REMATCH] Đã gửi yêu cầu chơi lại")
-                elif lobby_rect.collidepoint(mouse_x, mouse_y):
+                # Nút "Về Lobby" - vị trí động dựa trên có nút chơi lại hay không
+                if show_rematch:
+                    lobby_rect = pygame.Rect((SCREEN_WIDTH / 2) + 20, 370, 140, 50)
+                else:
+                    lobby_rect = pygame.Rect((SCREEN_WIDTH / 2) - 70, 370, 140, 50)
+                
+                if lobby_rect.collidepoint(mouse_x, mouse_y):
                     network.send_message({"action": "LEAVE_ROOM", "payload": {}})
-                    
                     print(f"[DEBUG] Game end leave room - room_join_source: {room_join_source}")
                     
                     # Quay về nơi ban đầu dựa trên room_join_source
@@ -1042,7 +1113,7 @@ while running:
         password_input.update(clock)
     elif game_state == "CREATE_ROOM_FORM":
         create_room_password_input.update(clock)
-        create_room_time_input.update(clock)
+        # Toggle and choice buttons don't need per-frame cursor updates
     # [MỚI]
     elif game_state == "JOIN_ROOM_FORM":
         join_room_code_input.update(clock)
@@ -1235,6 +1306,12 @@ while running:
             
             # Khởi tạo timer cho lượt đầu tiên
             turn_start_time = pygame.time.get_ticks()
+
+            # Cập nhật TURN_TIMEOUT theo settings của phòng (nếu server gửi)
+            settings = message.get("settings") or {}
+            if settings.get("time_limit"):
+                TURN_TIMEOUT = int(settings.get("time_limit"))
+                print(f"[CLIENT] TURN_TIMEOUT set to {TURN_TIMEOUT} from GAME_START settings")
             
             # Lưu my_user_id
             my_user_id = user_data.get("user_id") if user_data else None
@@ -1284,8 +1361,10 @@ while running:
         
         # [MỚI] Xử lý khi game kết thúc
         elif status == "GAME_OVER":
+            print(f"[DEBUG GAME_OVER] Received message: {message}")
             game_state = "GAME_OVER_SCREEN"
             game_result = message.get("result")  # WIN, LOSE, TIMEOUT_WIN, TIMEOUT_LOSE, OPPONENT_LEFT_WIN
+            print(f"[DEBUG GAME_OVER] Set game_result to: {game_result}")
             game_score = message.get("score", {})
             game_end_reason = message.get("reason", "")  # Lý do kết thúc game
             game_end_message = message.get("message", "")  # Thông điệp từ server
@@ -1319,24 +1398,28 @@ while running:
         # [MỚI] Xử lý khi có người timeout  
         elif status == "TURN_TIMEOUT":
             timeout_msg = message.get("message", "Ai đó đã hết thời gian!")
-            my_turn = message.get("my_turn", False)
-            game_board = message.get("board")
-            turn_info = message.get("turn", "")
             
-            if game_board:
-                board = game_board
+            # Game kết thúc do timeout - người timeout thua
+            game_state = "GAME_OVER_SCREEN"
             
-            # Cập nhật trạng thái lượt đi cho cả hai biến
-            current_turn = "YOU" if my_turn else "OPPONENT"
-            is_my_turn = my_turn
+            # Phân tích xem đó có phải lượt của mình không
+            # Nếu server gửi TURN_TIMEOUT cho mình, thì mình thua
+            # Nếu server gửi TURN_TIMEOUT cho đối thủ, thì đối thủ thua (mình thắng)
+            my_turn_before = message.get("my_turn", False)
             
-            # Reset timer cho lượt mới
-            turn_start_time = pygame.time.get_ticks()
+            if my_turn_before:
+                # Lượt của mình -> mình timeout -> mình thua
+                game_result = "TIMEOUT_LOSE"
+                game_end_message = "Bạn thua do hết thời gian!"
+            else:
+                # Lượt của đối thủ -> đối thủ timeout -> mình thắng
+                game_result = "TIMEOUT_WIN"
+                game_end_message = "Đối thủ hết thời gian - bạn thắng!"
             
-            print(f"[TURN_TIMEOUT] {timeout_msg}, My turn: {my_turn}, Turn: {turn_info}")
-            print(f"[CLIENT DEBUG] current_turn đã được set thành: {current_turn}")
-            print(f"[CLIENT DEBUG] is_my_turn đã được set thành: {is_my_turn}")
-            print(f"[CLIENT DEBUG] my_user_id: {my_user_id}")
+            game_score = {}
+            game_end_reason = "TIMEOUT"
+            
+            print(f"[TURN_TIMEOUT] {timeout_msg} | Result: {game_result}")
             feedback_msg = timeout_msg
             feedback_color = (255, 255, 0)
         
@@ -1523,28 +1606,33 @@ while running:
     # --- Vẽ Màn hình LEADERBOARD ---
     elif game_state == "LEADERBOARD":
         screen.fill(theme.BG)
-        
-        # Tiêu đề
-        draw_text("BẢNG XẾP HẠNG", font_large, SCREEN_WIDTH / 2, 60, theme.TEXT)
-        
-        # Hiển thị thông tin user hiện tại
+
+        # Top panel (title + user summary) — tăng chiều cao để có khoảng trắng
+        top_panel_rect = pygame.Rect(20, 20, SCREEN_WIDTH - 40, 160)
+        pygame.draw.rect(screen, theme.SURFACE, top_panel_rect, border_radius=10)
+        pygame.draw.rect(screen, theme.TEXT, top_panel_rect, width=2, border_radius=10)
+
+        # Tiêu đề nằm trong panel (đẩy xuống chút để tạo khoảng cách)
+        draw_text("BẢNG XẾP HẠNG", font_large, SCREEN_WIDTH / 2, 56, theme.TEXT)
+
+        # Hiển thị thông tin user hiện tại (summary) nằm dưới tiêu đề
         if user_rank_info:
             username = user_rank_info.get("username", "")
             wins = user_rank_info.get("wins", 0)
-            total_games = user_rank_info.get("total_games", 0) 
+            total_games = user_rank_info.get("total_games", 0)
             rank = user_rank_info.get("rank", "N/A")
-            
-            # Khung thông tin user
-            user_info_rect = pygame.Rect(50, 90, SCREEN_WIDTH - 100, 60)
-            pygame.draw.rect(screen, (40, 40, 40), user_info_rect)
-            pygame.draw.rect(screen, theme.TEXT, user_info_rect, 2)
-            
-            # Text thông tin user
-            draw_text(f"Bạn: {username}", font_medium, 150, 110, (150, 255, 150))
-            draw_text(f"Hạng: #{rank}", font_medium, 400, 110, (255, 215, 0))
-            draw_text(f"Thắng: {wins}/{total_games}", font_medium, 650, 110, (100, 255, 100))
-        
-        start_y = 180  # Bắt đầu danh sách từ vị trí này
+
+            # Khung thông tin user (nằm trong top panel) với padding lớn hơn
+            user_info_rect = pygame.Rect(30, 100, SCREEN_WIDTH - 60, 70)
+            pygame.draw.rect(screen, (30, 30, 32), user_info_rect, border_radius=8)
+            pygame.draw.rect(screen, theme.TEXT, user_info_rect, 2, border_radius=8)
+
+            # Text thông tin user: username (xanh), rank (vàng), wins (xanh lá)
+            draw_text(f"Bạn: {username}", font_medium, 180, 135, theme.LIME_GREEN)
+            draw_text(f"Hạng: #{rank}", font_medium, 420, 135, (255, 215, 0))
+            draw_text(f"Thắng: {wins}/{total_games}", font_medium, 740, 135, theme.SUCCESS)
+
+        start_y = 200  # Bắt đầu danh sách từ vị trí này (sau panel) — tăng khoảng cách
         
         if not leaderboard:
             draw_text("Chưa có dữ liệu bảng xếp hạng", font_medium, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, theme.SUBTEXT)
@@ -1553,25 +1641,27 @@ while running:
             start_idx = leaderboard_page * players_per_page
             end_idx = min(start_idx + players_per_page, len(leaderboard))
             
-            # Header bảng
-            draw_text("Hạng", font_medium, 150, start_y, theme.TEXT)
-            draw_text("Tên người chơi", font_medium, 350, start_y, theme.TEXT)
-            draw_text("Số trận thắng", font_medium, 600, start_y, theme.TEXT)
-            draw_text("Tổng trận", font_medium, 800, start_y, theme.TEXT)
-            
-            # Vẽ đường phân cách
-            pygame.draw.line(screen, theme.SUBTEXT, (50, start_y + 25), (SCREEN_WIDTH - 50, start_y + 25), 2)
-            
-            # Hiển thị các người chơi
+            # Header bảng (columns) — đặt cột rộng hơn để tránh dính sát
+            draw_text("Hạng", font_medium, 180, start_y, theme.TEXT)
+            draw_text("Tên người chơi", font_medium, 420, start_y, theme.TEXT)
+            draw_text("Số trận thắng", font_medium, 660, start_y, theme.TEXT)
+            draw_text("Tổng trận", font_medium, 860, start_y, theme.TEXT)
+
+            # Vẽ đường phân cách dưới header (tăng offset để có khoảng cách)
+            pygame.draw.line(screen, theme.SUBTEXT, (50, start_y + 26), (SCREEN_WIDTH - 50, start_y + 26), 2)
+
+            # Hiển thị các người chơi (dạng hàng)
+            row_height = 64
             for i in range(start_idx, end_idx):
                 player = leaderboard[i]
-                y_pos = start_y + 40 + (i - start_idx) * 40
+                row_index = i - start_idx
+                y_pos = start_y + 40 + row_index * row_height
                 rank = i + 1
-                
+
                 username = player.get("username", "Không rõ")
                 wins = player.get("wins", 0)
                 total_games = player.get("total_games", 0)
-                
+
                 # Màu sắc theo hạng
                 rank_color = theme.TEXT
                 if rank == 1:
@@ -1580,16 +1670,22 @@ while running:
                     rank_color = (192, 192, 192)  # Bạc
                 elif rank == 3:
                     rank_color = (205, 127, 50)  # Đồng
-                
-                # Highlight nếu là user hiện tại
+
+                # Highlight full-width nếu là user hiện tại (giống ảnh: hàng nền xanh đậm)
                 if user_rank_info and username == user_rank_info.get("username"):
-                    highlight_rect = pygame.Rect(50, y_pos - 15, SCREEN_WIDTH - 100, 35)
-                    pygame.draw.rect(screen, (30, 60, 30), highlight_rect)
-                
-                draw_text(f"#{rank}", font_small, 150, y_pos, rank_color)
-                draw_text(username, font_small, 350, y_pos, theme.TEXT)
-                draw_text(str(wins), font_small, 600, y_pos, (100, 255, 100))
-                draw_text(str(total_games), font_small, 800, y_pos, theme.SUBTEXT)
+                    highlight_rect = pygame.Rect(50, y_pos - 20, SCREEN_WIDTH - 100, row_height - 8)
+                    pygame.draw.rect(screen, (24, 64, 24), highlight_rect)
+
+                # Alternating subtle background for non-highlight rows
+                elif row_index % 2 == 1:
+                    alt_rect = pygame.Rect(50, y_pos - 20, SCREEN_WIDTH - 100, row_height - 8)
+                    pygame.draw.rect(screen, (28, 28, 30), alt_rect)
+
+                # Draw text cells (đẩy các cột ra xa nhau để không dính)
+                draw_text(f"#{rank}", font_small, 180, y_pos, rank_color)
+                draw_text(username, font_small, 420, y_pos, theme.TEXT)
+                draw_text(str(wins), font_small, 660, y_pos, theme.LIME_GREEN)
+                draw_text(str(total_games), font_small, 860, y_pos, theme.SUBTEXT)
                 
         # Thông tin phân trang
         total_pages = max(1, (len(leaderboard) + players_per_page - 1) // players_per_page)
@@ -1653,12 +1749,29 @@ while running:
         time_label_y = panel_y + 150
         time_input_y = panel_y + 180
         draw_text("Thời gian mỗi lượt (giây):", font_small, input_x, time_label_y, color=theme.SUBTEXT, center=False)
-        create_room_time_input.rect.topleft = (input_x, time_input_y)
-        create_room_time_input.draw(screen)
 
-        # Confirm button (centered in panel)
+        # Toggle button (hiện/ẩn các lựa chọn theo hàng)
+        create_room_time_toggle.rect.topleft = (input_x, time_input_y)
+        create_room_time_toggle.check_hover(mouse_pos)
+        create_room_time_toggle.draw(screen)
+
+        # Nếu đang hiển thị, vẽ các nút lựa chọn ngang
+        if show_time_choices:
+            choice_y_draw = time_input_y + create_room_time_toggle.rect.height + 12
+            for i, btn in enumerate(choice_btns):
+                btn.rect.topleft = (input_x + i * (choice_btn_w + choice_spacing), choice_y_draw)
+                btn.check_hover(mouse_pos)
+                btn.draw(screen)
+
+        # Confirm button (centered in panel) - position depends on whether time choices are shown
         create_room_confirm_button.rect.centerx = SCREEN_WIDTH // 2
-        create_room_confirm_button.rect.y = panel_y + 260
+        if show_time_choices:
+            # compute choice row top
+            choice_y_draw = time_input_y + create_room_time_toggle.rect.height + 12
+            base_confirm_y = int(choice_y_draw + choice_btn_h + 30)
+        else:
+            base_confirm_y = panel_y + 260
+        create_room_confirm_button.rect.y = base_confirm_y
         create_room_confirm_button.check_hover(mouse_pos)
         create_room_confirm_button.draw(screen)
 
@@ -2089,6 +2202,7 @@ while running:
 
     # --- Vẽ Màn hình GAME_OVER_SCREEN ---
     elif game_state == "GAME_OVER_SCREEN":
+        print(f"[DEBUG RENDER] game_result: {game_result}")
         screen.fill(theme.BG)
         
         # Tiêu đề dựa trên kết quả
@@ -2140,20 +2254,29 @@ while running:
             draw_text(feedback_msg, font_small, SCREEN_WIDTH / 2, 320, feedback_color)
         
         # Nút chơi lại và quay về lobby
-        rematch_button = Button(
-            x=(SCREEN_WIDTH / 2) - 160, y=370, width=140, height=50,
-            text="Chơi lại", font=font_medium,
-            color_normal=(0, 200, 0), color_hover=(0, 255, 0)
-        )
+        # Show rematch button cho tất cả trường hợp TRỪ timeout loss
+        show_rematch = game_result is not None and game_result != "TIMEOUT_LOSE"
+        print(f"[DEBUG BUTTON] game_result={game_result}, show_rematch={show_rematch}")
+        
+        if show_rematch:
+            rematch_button = Button(
+                x=(SCREEN_WIDTH / 2) - 160, y=370, width=140, height=50,
+                text="Chơi lại", font=font_medium,
+                color_normal=(0, 200, 0), color_hover=(0, 255, 0)
+            )
+            rematch_button.check_hover(mouse_pos)
+            rematch_button.draw(screen)
+            lobby_x = (SCREEN_WIDTH / 2) + 20
+        else:
+            lobby_x = (SCREEN_WIDTH / 2) - 70  # Center the lobby button when rematch is hidden
+        
         lobby_button = Button(
-            x=(SCREEN_WIDTH / 2) + 20, y=370, width=140, height=50,
+            x=lobby_x, y=370, width=140, height=50,
             text="Về Lobby", font=font_medium,
             color_normal=(200, 0, 0), color_hover=(255, 0, 0)
         )
         
-        rematch_button.check_hover(mouse_pos)
         lobby_button.check_hover(mouse_pos)
-        rematch_button.draw(screen)
         lobby_button.draw(screen)
 
     # --- Cập nhật màn hình chung ---

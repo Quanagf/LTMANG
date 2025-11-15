@@ -3,9 +3,9 @@
 DB_CONFIG = {
     'host': 'localhost',      # Giữ nguyên nếu MySQL chạy ở máy bạn
     'user': 'root',           # User mặc định, có thể bạn đã đổi
-    'password': 'toann01032005', # <-- THAY ĐỔI DÒNG NÀY
+    'password': 'Binh180405', # <-- THAY ĐỔI DÒNG NÀY
     'database': 'caro',        # Tên database bạn đã tạo
-    'auth_plugin': 'mysql_native_password'
+    'auth_plugin': 'mysql_native_password' # Thêm dòng này nếu cần
 }
 
 # Cấu hình Server WebSocket
